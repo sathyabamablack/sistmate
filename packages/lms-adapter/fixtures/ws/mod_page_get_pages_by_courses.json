@@ -1,0 +1,25 @@
+{
+  "pages": [
+    {
+      "id": 23,
+      "coursemodule": 6012,
+      "course": 101,
+      "name": "Recurrences cheat sheet",
+      "intro": "",
+      "introformat": 1,
+      "content": "<h3>Master theorem</h3><p>For <code>T(n) = aT(n/b) + f(n)</code> compare <em>f(n)</em> with <code>n<sup>log_b a</sup></code>.</p><ul><li>Case 1: <b>leaf-heavy</b></li><li>Case 2: balanced</li><li>Case 3: root-heavy</li></ul><p><img src=\"@@PLUGINFILE@@/tree.png\" alt=\"tree\"> See <a href=\"/mod/assign/view.php?id=5001\">Lab 4</a> and <a href=\"https://example.org/notes\">external notes</a>.</p>",
+      "contentformat": 1,
+      "legacyfiles": 0,
+      "legacyfileslast": null,
+      "display": 5,
+      "displayoptions": "a:1:{s:12:\"printheading\";s:1:\"1\";}",
+      "revision": 1,
+      "timemodified": 1789000000,
+      "section": 1,
+      "visible": 1,
+      "groupmode": 0,
+      "groupingid": 0
+    }
+  ],
+  "warnings": []
+}

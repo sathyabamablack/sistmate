@@ -1,0 +1,25 @@
+{
+  "name": "unified-student-portal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A unified, modern dashboard over a student's own college ERP + Moodle LMS data (bring-your-own-credentials).",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "start": "npm run start --workspace apps/web",
+    "lint": "npm run lint --workspace apps/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "verify:live": "tsx tools/verify-live.mts"
+  },
+  "engines": {
+    "node": ">=20.9"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

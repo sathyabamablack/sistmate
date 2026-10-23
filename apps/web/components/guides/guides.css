@@ -1,0 +1,263 @@
+/*
+  Install guide animations (components/guides/**). Plain CSS so the shared
+  globals.css stays untouched; colours come from the design tokens.
+  The global reduced-motion rules in globals.css still apply on top of these.
+*/
+
+/* Everything in a paused player holds still. */
+.guide-stage[data-paused] *,
+.guide-stage[data-paused] *::before,
+.guide-stage[data-paused] *::after {
+  animation-play-state: paused !important;
+}
+
+/* Text being typed: revealed left to right over --guide-type-ms. */
+.guide-typing {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+  animation: guide-type var(--guide-type-ms, 1400ms) steps(18, end) both;
+}
+@keyframes guide-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Blinking caret after typed text. */
+.guide-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 1px;
+  vertical-align: -0.15em;
+  background: hsl(var(--primary));
+  animation: guide-blink 1s steps(1, end) infinite;
+}
+@keyframes guide-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Menus and dialogs. */
+.guide-pop {
+  animation: guide-pop 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes guide-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.guide-sheet {
+  animation: guide-sheet 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes guide-sheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.guide-fade {
+  animation: guide-fade 0.3s ease-out both;
+}
+@keyframes guide-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.guide-rise {
+  animation: guide-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes guide-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* A new app icon drops onto the home screen. */
+.guide-drop {
+  animation: guide-drop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s both;
+}
+@keyframes guide-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* App launch: the splash fades away and reveals the page. */
+.guide-splash {
+  animation: guide-splash 0.5s ease-in 0.9s both;
+}
+@keyframes guide-splash {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+.guide-launch {
+  animation: guide-launch 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes guide-launch {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Keyboard sliding up. */
+.guide-keyboard {
+  animation: guide-sheet 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Spinner for "loading" moments. */
+.guide-spin {
+  animation: guide-spin 0.9s linear infinite;
+}
+@keyframes guide-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The finger (phone) and cursor (laptop). Positioned by the player every frame. */
+.guide-pointer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+  transition: opacity 0.2s ease-out;
+}
+.guide-touch {
+  position: absolute;
+  left: -1.5rem;
+  top: -1.5rem;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  background: hsl(0 0% 100% / 0.55);
+  box-shadow:
+    0 0 0 2px hsl(171 40% 12% / 0.55),
+    0 6px 18px hsl(171 40% 12% / 0.35);
+  transition: transform 0.15s ease-out;
+}
+.guide-pointer[data-pressing] .guide-touch {
+  transform: scale(0.82);
+  background: hsl(0 0% 100% / 0.75);
+}
+.guide-cursor {
+  position: absolute;
+  left: -0.2rem;
+  top: -0.15rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  filter: drop-shadow(0 2px 3px hsl(0 0% 0% / 0.35));
+  transition: transform 0.12s ease-out;
+}
+.guide-pointer[data-pressing] .guide-cursor {
+  transform: scale(0.88);
+}
+/* Ripple on each tap or click. */
+.guide-ripple {
+  position: absolute;
+  left: -1.75rem;
+  top: -1.75rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  border: 3px solid #e0a020;
+  opacity: 0;
+}
+.guide-pointer[data-pressing] .guide-ripple {
+  animation: guide-ripple 0.5s ease-out both;
+}
+@keyframes guide-ripple {
+  from {
+    opacity: 0.95;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+/* The ring around what to tap next. */
+.guide-highlight {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 39;
+  pointer-events: none;
+  border-radius: 0.75rem;
+  box-shadow:
+    0 0 0 3px #e0a020,
+    0 0 0 7px hsl(40 90% 50% / 0.25);
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+.guide-highlight[data-on] {
+  opacity: 1;
+  animation: guide-pulse 1.2s ease-in-out infinite;
+}
+@keyframes guide-pulse {
+  50% {
+    box-shadow:
+      0 0 0 3px #e0a020,
+      0 0 0 11px hsl(40 90% 50% / 0.12);
+  }
+}
+
+/* The camera that zooms toward the step's focus. */
+.guide-camera {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Capture only: a near-invisible pixel that changes every frame (see GuidePlayer). */
+.guide-keepalive {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 2px;
+  height: 2px;
+  background: hsl(var(--background));
+  animation: guide-keepalive 0.1s linear infinite alternate;
+}
+@keyframes guide-keepalive {
+  to {
+    opacity: 0.97;
+  }
+}

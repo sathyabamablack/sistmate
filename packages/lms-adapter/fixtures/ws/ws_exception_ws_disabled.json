@@ -1,0 +1,6 @@
+{
+  "exception": "moodle_exception",
+  "errorcode": "enablewsdescription",
+  "message": "Web services must be enabled in Advanced features.",
+  "debuginfo": "Web services are disabled on this site."
+}

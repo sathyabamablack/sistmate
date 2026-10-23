@@ -1,0 +1,21 @@
+{
+  "quizzes": [
+    {
+      "id": 41,
+      "course": 101,
+      "coursemodule": 7001,
+      "name": "Quiz 2: Dynamic programming",
+      "intro": "<p>Ten questions.</p>",
+      "introformat": 1,
+      "timeopen": 1791775800,
+      "timeclose": 1791994200,
+      "timelimit": 1200,
+      "attempts": 1,
+      "grademethod": 1,
+      "grade": 10,
+      "sumgrades": 10,
+      "visible": 1
+    }
+  ],
+  "warnings": []
+}

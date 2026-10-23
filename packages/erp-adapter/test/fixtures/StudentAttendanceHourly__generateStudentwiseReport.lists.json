@@ -1,0 +1,41 @@
+{
+  "status": true,
+  "message": "Success",
+  "responseData": [
+    {
+      "AttendanceDate": "2026-10-12T00:00:00",
+      "totalHours": 6,
+      "Present": "1,2,3,4",
+      "Absent": "5",
+      "AttNotGiven": "6"
+    },
+    {
+      "AttendanceDate": "2026-10-09",
+      "totalHours": 7,
+      "Present": "1,2,3,4,5,6,7",
+      "Absent": "",
+      "AttNotGiven": ""
+    },
+    {
+      "AttendanceDate": "2026-10-07T18:30:00.000Z",
+      "totalHours": 6,
+      "Present": "1, 3, 4, 5",
+      "Absent": "2",
+      "AttNotGiven": null
+    },
+    {
+      "AttendanceDate": "06/10/2026",
+      "totalHours": 6,
+      "Present": "2",
+      "Absent": "1",
+      "AttNotGiven": "3"
+    },
+    {
+      "AttendanceDate": "05/10/2026",
+      "totalHours": 3,
+      "Present": "1",
+      "Absent": "2",
+      "AttNotGiven": "3"
+    }
+  ]
+}

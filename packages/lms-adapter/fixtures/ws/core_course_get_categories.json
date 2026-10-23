@@ -1,0 +1,4 @@
+[
+  { "id": 3, "name": "B.E. CSE", "idnumber": "", "description": "", "parent": 0, "path": "/3", "depth": 1, "visible": 1 },
+  { "id": 12, "name": "Semester 5", "idnumber": "", "description": "", "parent": 3, "path": "/3/12", "depth": 2, "visible": 1 }
+]

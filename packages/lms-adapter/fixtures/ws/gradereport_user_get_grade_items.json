@@ -1,0 +1,58 @@
+{
+  "usergrades": [
+    {
+      "courseid": 101,
+      "courseidnumber": "",
+      "userid": 2417,
+      "userfullname": "Aarav Krishnan",
+      "useridnumber": "41110987",
+      "maxdepth": 2,
+      "gradeitems": [
+        {
+          "id": 1,
+          "itemname": "Lab 3: Greedy Algorithms",
+          "itemtype": "mod",
+          "itemmodule": "assign",
+          "iteminstance": 307,
+          "itemnumber": 0,
+          "categoryid": 1,
+          "outcomeid": null,
+          "scaleid": null,
+          "locked": false,
+          "cmid": 5007,
+          "graderaw": 9,
+          "gradedatesubmitted": 1790800000,
+          "gradedategraded": 1791200000,
+          "gradehiddenbydate": false,
+          "gradeneedsupdate": false,
+          "gradeishidden": false,
+          "gradeislocked": false,
+          "gradeisoverridden": false,
+          "gradeformatted": "9.00",
+          "grademin": 0,
+          "grademax": 10,
+          "rangeformatted": "0&ndash;10",
+          "percentageformatted": "90.00 %",
+          "feedback": "",
+          "feedbackformat": 0
+        },
+        {
+          "id": 2,
+          "itemname": null,
+          "itemtype": "course",
+          "iteminstance": 1,
+          "itemnumber": null,
+          "categoryid": null,
+          "graderaw": 9,
+          "gradeformatted": "9.00",
+          "grademin": 0,
+          "grademax": 30,
+          "percentageformatted": "30.00 %",
+          "feedback": "",
+          "feedbackformat": 0
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

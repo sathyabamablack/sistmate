@@ -1,0 +1,21 @@
+# Never upload personal data or local secrets to Vercel.
+captures/
+**/data/cache/
+.env
+.env.*
+**/.env
+**/.env.*
+!apps/web/.env.example
+.mcp.json
+*.session
+.secrets/
+
+# Local build and test output (Vercel builds from source).
+node_modules/
+**/.next/
+test-results/
+playwright-report/
+blob-report/
+*.log
+*.tsbuildinfo
+.playwright-mcp/

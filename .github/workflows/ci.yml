@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Parser tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      # Skipped until the extension build script exists, so CI never fails on its absence.
+      - name: Build extension zip
+        if: ${{ hashFiles('apps/web/scripts/build-extension.mjs') != '' }}
+        run: npm run build:extension --workspace apps/web
+
+      - name: Build
+        run: npm run build
+        env:
+          DATA_SOURCE: mock
+          SESSION_SECRET: ci-only-secret-at-least-32-characters-long
+
+      - name: Upload extension zip
+        if: ${{ hashFiles('apps/web/scripts/build-extension.mjs') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp-connector
+          path: apps/web/public/erp-connector.zip
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Health smoke test
+        run: |
+          npm start --workspace apps/web -- -p 3100 > server.log 2>&1 &
+          server=$!
+          trap 'kill $server 2>/dev/null || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:3100/api/health -o health.json; then break; fi
+            sleep 1
+          done
+          cat health.json
+          node -e "
+            const h = JSON.parse(require('fs').readFileSync('health.json', 'utf8'));
+            const bad = [];
+            if (h.ok !== true) bad.push('ok is not true');
+            if (h.dataSource !== 'mock') bad.push('dataSource is not mock');
+            if (h.sessionSecretOk !== true) bad.push('sessionSecretOk is not true');
+            if (JSON.stringify(h).includes('ci-only-secret')) bad.push('health leaks the secret');
+            if (bad.length) { console.error(bad.join('; ')); process.exit(1); }
+          "
+          curl -fsS http://localhost:3100/setup -o /dev/null
+          cat server.log
+        env:
+          DATA_SOURCE: mock
+          SESSION_SECRET: ci-only-secret-at-least-32-characters-long
+
+      # Informational: a failing audit is a to-do, not a broken build.
+      - name: Dependency audit (production, informational)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
+  e2e:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Build extension zip
+        if: ${{ hashFiles('apps/web/scripts/build-extension.mjs') != '' }}
+        run: npm run build:extension --workspace apps/web
+
+      - name: Build
+        run: npm run build
+        env:
+          DATA_SOURCE: mock
+          SESSION_SECRET: ci-only-secret-at-least-32-characters-long
+
+      - name: End-to-end tests
+        run: npm run test:e2e --workspace apps/web
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 14

@@ -1,0 +1,76 @@
+<!-- SYNTHETIC FIXTURE: not from the real portal. Replace with a saved logged-in page from captures/erp/. -->
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><meta charset="utf-8" /><title>
+	Student Login :: ERP
+</title>
+<link href="css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript">
+  function validateLogin() {
+    if (document.getElementById('txtUserName').value == '') { alert('Please enter Register Number'); return false; }
+    return true;
+  }
+</script>
+</head>
+<body class="login-bg">
+    <form method="post" action="./Login.aspx" onsubmit="javascript:return WebForm_OnSubmit();" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="" />
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="" />
+<input type="hidden" name="__LASTFOCUS" id="__LASTFOCUS" value="" />
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwUKMTIxNDIyOTM0Mg9kFgICAw9kFgQCAQ8PFgIeBFRleHQFDFN5bnRoZXRpY0VSUGRkAgcPDxYCHwBlZGRkSyNTHETICFIXTUREnotreal==" />
+</div>
+
+<div class="aspNetHidden">
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="C2EE9ABB" />
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="/wEdAAZSYNTHETICfixturevalueAAAA+bJ3kq0mX0l1t7cZr9xg==" />
+</div>
+        <div class="container">
+          <div class="row">
+            <div class="col-md-4 col-md-offset-4">
+              <div class="panel panel-default login-panel">
+                <div class="panel-heading">
+                  <img src="images/logo.png" alt="University Logo" height="60" />
+                  <h3 class="panel-title">Student&nbsp;Login</h3>
+                </div>
+                <div class="panel-body">
+                  <table class="login-table" cellpadding="4">
+                    <tr>
+                      <td><span id="lblUser">Register No</span></td>
+                      <td><input name="txtUserName" type="text" maxlength="15" id="txtUserName" class="form-control" placeholder="Register Number" /></td>
+                    </tr>
+                    <tr>
+                      <td><span id="lblPass">Password</span></td>
+                      <td><input name="txtPassword" type="password" id="txtPassword" class="form-control" placeholder="Password" autocomplete="off" /></td>
+                    </tr>
+                    <tr>
+                      <td>&nbsp;</td>
+                      <td>
+                        <img id="imgCaptcha" src="CaptchaImage.aspx?guid=3f2a9c1e-0000-4000-8000-synthetic" alt="Captcha" style="height:40px;width:130px;border-width:0px;" />
+                        <a id="lnkRefresh" href="javascript:__doPostBack('lnkRefresh','')">Refresh</a>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td><span id="lblCode">Security Code</span></td>
+                      <td><input name="txtCaptcha" type="text" maxlength="6" id="txtCaptcha" class="form-control" placeholder="Enter the code shown" /></td>
+                    </tr>
+                    <tr>
+                      <td colspan="2" align="center">
+                        <input type="submit" name="btnLogin" value="Login" onclick="return validateLogin();" id="btnLogin" class="btn btn-primary" />
+                        &nbsp;&nbsp;
+                        <input type="submit" name="btnReset" value="Reset" id="btnReset" class="btn btn-default" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colspan="2"><span id="lblErrorMsg" class="text-danger"></span></td>
+                    </tr>
+                  </table>
+                  <p class="help-block small">Forgot password? Contact the ERP help desk. Accounts are locked after 5 incorrect attempts.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    </form>
+</body>
+</html>

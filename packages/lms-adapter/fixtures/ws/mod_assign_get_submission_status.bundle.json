@@ -1,0 +1,291 @@
+{
+  "301": {
+    "lastattempt": {
+      "submission": {
+        "id": 9101,
+        "userid": 2417,
+        "attemptnumber": 0,
+        "timecreated": 1784572200,
+        "timemodified": 1784572200,
+        "timestarted": null,
+        "status": "new",
+        "groupid": 0,
+        "assignment": 301,
+        "latest": 1,
+        "plugins": [
+          {
+            "type": "file",
+            "name": "File submissions",
+            "fileareas": [
+              {
+                "area": "submission_files",
+                "files": []
+              }
+            ]
+          }
+        ]
+      },
+      "submissiongroupmemberswhoneedtosubmit": [],
+      "submissionsenabled": true,
+      "locked": false,
+      "graded": false,
+      "canedit": true,
+      "caneditowner": true,
+      "cansubmit": true,
+      "extensionduedate": null,
+      "timelimit": 0,
+      "blindmarking": false,
+      "gradingstatus": "notgraded",
+      "usergroups": []
+    },
+    "warnings": []
+  },
+  "302": {
+    "lastattempt": {
+      "submission": {
+        "id": 9102,
+        "userid": 2417,
+        "attemptnumber": 0,
+        "timecreated": 1791374400,
+        "timemodified": 1791460800,
+        "timestarted": null,
+        "status": "submitted",
+        "groupid": 0,
+        "assignment": 302,
+        "latest": 1,
+        "plugins": [
+          {
+            "type": "file",
+            "name": "File submissions",
+            "fileareas": [
+              {
+                "area": "submission_files",
+                "files": []
+              }
+            ]
+          }
+        ]
+      },
+      "submissiongroupmemberswhoneedtosubmit": [],
+      "submissionsenabled": true,
+      "locked": false,
+      "graded": true,
+      "canedit": false,
+      "caneditowner": false,
+      "cansubmit": false,
+      "extensionduedate": null,
+      "timelimit": 0,
+      "blindmarking": false,
+      "gradingstatus": "graded",
+      "usergroups": []
+    },
+    "feedback": {
+      "grade": {
+        "id": 7702,
+        "assignment": 302,
+        "userid": 2417,
+        "attemptnumber": 0,
+        "timecreated": 1791637800,
+        "timemodified": 1791637800,
+        "grader": 1203,
+        "grade": "18.00000"
+      },
+      "gradefordisplay": "18.00&nbsp;/&nbsp;20.00",
+      "gradeddate": 1791637800,
+      "plugins": [
+        {
+          "type": "comments",
+          "name": "Feedback comments",
+          "editorfields": [
+            {
+              "name": "comments",
+              "description": "Feedback comments",
+              "text": "<p>Good decomposition. Show the closure computation for R3.</p>",
+              "format": 1
+            }
+          ]
+        }
+      ]
+    },
+    "warnings": []
+  },
+  "303": {
+    "lastattempt": {
+      "submission": {
+        "id": 9103,
+        "userid": 2417,
+        "attemptnumber": 0,
+        "timecreated": 1784572200,
+        "timemodified": 1784572200,
+        "timestarted": null,
+        "status": "new",
+        "groupid": 0,
+        "assignment": 303,
+        "latest": 1,
+        "plugins": [
+          {
+            "type": "file",
+            "name": "File submissions",
+            "fileareas": [
+              {
+                "area": "submission_files",
+                "files": []
+              }
+            ]
+          }
+        ]
+      },
+      "submissiongroupmemberswhoneedtosubmit": [],
+      "submissionsenabled": true,
+      "locked": false,
+      "graded": false,
+      "canedit": true,
+      "caneditowner": true,
+      "cansubmit": true,
+      "extensionduedate": null,
+      "timelimit": 0,
+      "blindmarking": false,
+      "gradingstatus": "notgraded",
+      "usergroups": []
+    },
+    "warnings": []
+  },
+  "304": {
+    "lastattempt": {
+      "submission": {
+        "id": 9104,
+        "userid": 2417,
+        "attemptnumber": 0,
+        "timecreated": 1791550800,
+        "timemodified": 1791637200,
+        "timestarted": null,
+        "status": "submitted",
+        "groupid": 0,
+        "assignment": 304,
+        "latest": 1,
+        "plugins": [
+          {
+            "type": "file",
+            "name": "File submissions",
+            "fileareas": [
+              {
+                "area": "submission_files",
+                "files": []
+              }
+            ]
+          }
+        ]
+      },
+      "submissiongroupmemberswhoneedtosubmit": [],
+      "submissionsenabled": true,
+      "locked": false,
+      "graded": false,
+      "canedit": true,
+      "caneditowner": true,
+      "cansubmit": false,
+      "extensionduedate": null,
+      "timelimit": 0,
+      "blindmarking": false,
+      "gradingstatus": "notgraded",
+      "usergroups": []
+    },
+    "warnings": []
+  },
+  "305": {
+    "lastattempt": {
+      "submission": {
+        "id": 9105,
+        "userid": 2417,
+        "attemptnumber": 0,
+        "timecreated": 1791601200,
+        "timemodified": 1791687600,
+        "timestarted": null,
+        "status": "draft",
+        "groupid": 0,
+        "assignment": 305,
+        "latest": 1,
+        "plugins": [
+          {
+            "type": "file",
+            "name": "File submissions",
+            "fileareas": [
+              {
+                "area": "submission_files",
+                "files": []
+              }
+            ]
+          }
+        ]
+      },
+      "submissiongroupmemberswhoneedtosubmit": [],
+      "submissionsenabled": true,
+      "locked": false,
+      "graded": false,
+      "canedit": true,
+      "caneditowner": true,
+      "cansubmit": true,
+      "extensionduedate": null,
+      "timelimit": 0,
+      "blindmarking": false,
+      "gradingstatus": "notgraded",
+      "usergroups": []
+    },
+    "warnings": []
+  },
+  "307": {
+    "lastattempt": {
+      "submission": {
+        "id": 9107,
+        "userid": 2417,
+        "attemptnumber": 0,
+        "timecreated": 1790680800,
+        "timemodified": 1790767200,
+        "timestarted": null,
+        "status": "submitted",
+        "groupid": 0,
+        "assignment": 307,
+        "latest": 1,
+        "plugins": [
+          {
+            "type": "file",
+            "name": "File submissions",
+            "fileareas": [
+              {
+                "area": "submission_files",
+                "files": []
+              }
+            ]
+          }
+        ]
+      },
+      "submissiongroupmemberswhoneedtosubmit": [],
+      "submissionsenabled": true,
+      "locked": false,
+      "graded": true,
+      "canedit": false,
+      "caneditowner": false,
+      "cansubmit": false,
+      "extensionduedate": null,
+      "timelimit": 0,
+      "blindmarking": false,
+      "gradingstatus": "graded",
+      "usergroups": []
+    },
+    "feedback": {
+      "grade": {
+        "id": 7707,
+        "assignment": 307,
+        "userid": 2417,
+        "attemptnumber": 0,
+        "timecreated": 1790917200,
+        "timemodified": 1790917200,
+        "grader": 1188,
+        "grade": "9.50000"
+      },
+      "gradefordisplay": "<span class=\"grade\">9.50 / 10.00</span>",
+      "gradeddate": 1790917200,
+      "plugins": []
+    },
+    "warnings": []
+  }
+}

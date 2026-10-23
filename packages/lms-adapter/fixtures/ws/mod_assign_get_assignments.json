@@ -1,0 +1,430 @@
+{
+  "courses": [
+    {
+      "id": 101,
+      "fullname": "Design and Analysis of Algorithms",
+      "shortname": "CS1501",
+      "timemodified": 1782864000,
+      "assignments": [
+        {
+          "id": 301,
+          "cmid": 5001,
+          "course": 101,
+          "name": "Lab 4: Dynamic Programming &mdash; Matrix Chain &amp; LCS",
+          "nosubmissions": 0,
+          "submissiondrafts": 1,
+          "sendnotifications": 0,
+          "sendlatenotifications": 0,
+          "sendstudentnotifications": 1,
+          "duedate": 1792088940,
+          "allowsubmissionsfromdate": 1784572200,
+          "grade": 20,
+          "timemodified": 1782864000,
+          "completionsubmit": 1,
+          "cutoffdate": 0,
+          "gradingduedate": 1792693740,
+          "teamsubmission": 0,
+          "requireallteammemberssubmit": 0,
+          "teamsubmissiongroupingid": 0,
+          "blindmarking": 0,
+          "hidegrader": 0,
+          "revealidentities": 0,
+          "attemptreopenmethod": "untilpass",
+          "maxattempts": -1,
+          "markingworkflow": 0,
+          "markingallocation": 0,
+          "requiresubmissionstatement": 1,
+          "preventsubmissionnotingroup": 0,
+          "configs": [
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            },
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "maxfilesubmissions",
+              "value": "3"
+            },
+            {
+              "plugin": "comments",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            }
+          ],
+          "intro": "<p>Implement matrix-chain multiplication and LCS using bottom-up DP. Upload source + report.</p>",
+          "introformat": 1,
+          "introfiles": [],
+          "introattachments": []
+        },
+        {
+          "id": 307,
+          "cmid": 5007,
+          "course": 101,
+          "name": "Lab 3: Greedy Algorithms",
+          "nosubmissions": 0,
+          "submissiondrafts": 1,
+          "sendnotifications": 0,
+          "sendlatenotifications": 0,
+          "sendstudentnotifications": 1,
+          "duedate": 1790879340,
+          "allowsubmissionsfromdate": 1784572200,
+          "grade": 10,
+          "timemodified": 1782864000,
+          "completionsubmit": 1,
+          "cutoffdate": 0,
+          "gradingduedate": 1791484140,
+          "teamsubmission": 0,
+          "requireallteammemberssubmit": 0,
+          "teamsubmissiongroupingid": 0,
+          "blindmarking": 0,
+          "hidegrader": 0,
+          "revealidentities": 0,
+          "attemptreopenmethod": "untilpass",
+          "maxattempts": -1,
+          "markingworkflow": 0,
+          "markingallocation": 0,
+          "requiresubmissionstatement": 1,
+          "preventsubmissionnotingroup": 0,
+          "configs": [
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            },
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "maxfilesubmissions",
+              "value": "3"
+            },
+            {
+              "plugin": "comments",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            }
+          ],
+          "intro": "<p>Activity selection and Huffman coding.</p>",
+          "introformat": 1,
+          "introfiles": [],
+          "introattachments": []
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "fullname": "Database Management Systems",
+      "shortname": "CS1502",
+      "timemodified": 1782864000,
+      "assignments": [
+        {
+          "id": 302,
+          "cmid": 5002,
+          "course": 102,
+          "name": "Assignment 3: Normalization to BCNF",
+          "nosubmissions": 0,
+          "submissiondrafts": 1,
+          "sendnotifications": 0,
+          "sendlatenotifications": 0,
+          "sendstudentnotifications": 1,
+          "duedate": 1791570540,
+          "allowsubmissionsfromdate": 1784572200,
+          "grade": 20,
+          "timemodified": 1782864000,
+          "completionsubmit": 1,
+          "cutoffdate": 0,
+          "gradingduedate": 1792175340,
+          "teamsubmission": 0,
+          "requireallteammemberssubmit": 0,
+          "teamsubmissiongroupingid": 0,
+          "blindmarking": 0,
+          "hidegrader": 0,
+          "revealidentities": 0,
+          "attemptreopenmethod": "untilpass",
+          "maxattempts": -1,
+          "markingworkflow": 0,
+          "markingallocation": 0,
+          "requiresubmissionstatement": 1,
+          "preventsubmissionnotingroup": 0,
+          "configs": [
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            },
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "maxfilesubmissions",
+              "value": "3"
+            },
+            {
+              "plugin": "comments",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            }
+          ],
+          "intro": "<p>Decompose the given relations into BCNF and justify each step.</p>",
+          "introformat": 1,
+          "introfiles": [],
+          "introattachments": []
+        },
+        {
+          "id": 306,
+          "cmid": 5006,
+          "course": 102,
+          "name": "Mini Project: Library Management Schema + Queries",
+          "nosubmissions": 0,
+          "submissiondrafts": 1,
+          "sendnotifications": 0,
+          "sendlatenotifications": 0,
+          "sendstudentnotifications": 1,
+          "duedate": 0,
+          "allowsubmissionsfromdate": 0,
+          "grade": 50,
+          "timemodified": 1782864000,
+          "completionsubmit": 1,
+          "cutoffdate": 0,
+          "gradingduedate": 0,
+          "teamsubmission": 0,
+          "requireallteammemberssubmit": 0,
+          "teamsubmissiongroupingid": 0,
+          "blindmarking": 0,
+          "hidegrader": 0,
+          "revealidentities": 0,
+          "attemptreopenmethod": "untilpass",
+          "maxattempts": -1,
+          "markingworkflow": 0,
+          "markingallocation": 0,
+          "requiresubmissionstatement": 1,
+          "preventsubmissionnotingroup": 0,
+          "configs": [
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            },
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "maxfilesubmissions",
+              "value": "3"
+            },
+            {
+              "plugin": "comments",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            }
+          ],
+          "intro": "<p>Team mini project. Deadline will be announced in class.</p>",
+          "introformat": 1,
+          "introfiles": [],
+          "introattachments": []
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "fullname": "Operating Systems",
+      "shortname": "CS1503",
+      "timemodified": 1782864000,
+      "assignments": [
+        {
+          "id": 303,
+          "cmid": 5003,
+          "course": 103,
+          "name": "Lab 3: CPU Scheduling Simulator",
+          "nosubmissions": 0,
+          "submissiondrafts": 1,
+          "sendnotifications": 0,
+          "sendlatenotifications": 0,
+          "sendstudentnotifications": 1,
+          "duedate": 1791138540,
+          "allowsubmissionsfromdate": 1784572200,
+          "grade": 20,
+          "timemodified": 1782864000,
+          "completionsubmit": 1,
+          "cutoffdate": 0,
+          "gradingduedate": 1791743340,
+          "teamsubmission": 0,
+          "requireallteammemberssubmit": 0,
+          "teamsubmissiongroupingid": 0,
+          "blindmarking": 0,
+          "hidegrader": 0,
+          "revealidentities": 0,
+          "attemptreopenmethod": "untilpass",
+          "maxattempts": -1,
+          "markingworkflow": 0,
+          "markingallocation": 0,
+          "requiresubmissionstatement": 1,
+          "preventsubmissionnotingroup": 0,
+          "configs": [
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            },
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "maxfilesubmissions",
+              "value": "3"
+            },
+            {
+              "plugin": "comments",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            }
+          ],
+          "intro": "<p>Simulate FCFS, SJF, Round Robin and Priority scheduling.</p>",
+          "introformat": 1,
+          "introfiles": [],
+          "introattachments": []
+        }
+      ]
+    },
+    {
+      "id": 104,
+      "fullname": "Computer Networks",
+      "shortname": "CS1504",
+      "timemodified": 1782864000,
+      "assignments": [
+        {
+          "id": 304,
+          "cmid": 5004,
+          "course": 104,
+          "name": "Assignment 2: Subnetting &amp; VLSM Worksheet",
+          "nosubmissions": 0,
+          "submissiondrafts": 1,
+          "sendnotifications": 0,
+          "sendlatenotifications": 0,
+          "sendstudentnotifications": 1,
+          "duedate": 1792520940,
+          "allowsubmissionsfromdate": 1784572200,
+          "grade": 20,
+          "timemodified": 1782864000,
+          "completionsubmit": 1,
+          "cutoffdate": 0,
+          "gradingduedate": 1793125740,
+          "teamsubmission": 0,
+          "requireallteammemberssubmit": 0,
+          "teamsubmissiongroupingid": 0,
+          "blindmarking": 0,
+          "hidegrader": 0,
+          "revealidentities": 0,
+          "attemptreopenmethod": "untilpass",
+          "maxattempts": -1,
+          "markingworkflow": 0,
+          "markingallocation": 0,
+          "requiresubmissionstatement": 1,
+          "preventsubmissionnotingroup": 0,
+          "configs": [
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            },
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "maxfilesubmissions",
+              "value": "3"
+            },
+            {
+              "plugin": "comments",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            }
+          ],
+          "intro": "",
+          "introformat": 1,
+          "introfiles": [],
+          "introattachments": []
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "fullname": "Theory of Computation",
+      "shortname": "CS1505",
+      "timemodified": 1782864000,
+      "assignments": [
+        {
+          "id": 305,
+          "cmid": 5005,
+          "course": 105,
+          "name": "Problem Set 4: Pushdown Automata &amp; CFGs",
+          "nosubmissions": 0,
+          "submissiondrafts": 1,
+          "sendnotifications": 0,
+          "sendlatenotifications": 0,
+          "sendstudentnotifications": 1,
+          "duedate": 1792348140,
+          "allowsubmissionsfromdate": 1784572200,
+          "grade": 25,
+          "timemodified": 1782864000,
+          "completionsubmit": 1,
+          "cutoffdate": 0,
+          "gradingduedate": 1792952940,
+          "teamsubmission": 0,
+          "requireallteammemberssubmit": 0,
+          "teamsubmissiongroupingid": 0,
+          "blindmarking": 0,
+          "hidegrader": 0,
+          "revealidentities": 0,
+          "attemptreopenmethod": "untilpass",
+          "maxattempts": -1,
+          "markingworkflow": 0,
+          "markingallocation": 0,
+          "requiresubmissionstatement": 1,
+          "preventsubmissionnotingroup": 0,
+          "configs": [
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            },
+            {
+              "plugin": "file",
+              "subtype": "assignsubmission",
+              "name": "maxfilesubmissions",
+              "value": "3"
+            },
+            {
+              "plugin": "comments",
+              "subtype": "assignsubmission",
+              "name": "enabled",
+              "value": "1"
+            }
+          ],
+          "intro": "",
+          "introformat": 1,
+          "introfiles": [],
+          "introattachments": []
+        }
+      ]
+    },
+    {
+      "id": 106,
+      "fullname": "Object Oriented Software Engineering",
+      "shortname": "CS1506",
+      "timemodified": 1782864000,
+      "assignments": []
+    }
+  ],
+  "warnings": []
+}

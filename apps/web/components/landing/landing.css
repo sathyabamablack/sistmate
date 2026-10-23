@@ -1,0 +1,60 @@
+/*
+  Welcome page motion (components/landing/**). Plain CSS so globals.css stays
+  untouched. The global reduced-motion rules in globals.css still apply.
+*/
+
+/* The hero bar fills from zero once, on load, and sweeps past the 75% line. */
+.welcome-fill {
+  transform-origin: left center;
+  animation: welcome-fill 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+}
+@keyframes welcome-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* The 75% line rises into place just before the fill reaches it (Tailwind's translate is a separate property). */
+.welcome-line {
+  transform-origin: center bottom;
+  animation: welcome-line 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+}
+@keyframes welcome-line {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* The active caption's rule fills while its screen is showing; its end moves the preview on. */
+.welcome-timer {
+  transform-origin: center top;
+  animation: welcome-timer var(--welcome-slide-ms, 4500ms) linear both;
+}
+.welcome-timer[data-paused] {
+  animation-play-state: paused;
+}
+@keyframes welcome-timer {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Native number spinners are replaced by the large − / + buttons. */
+.welcome-number {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.welcome-number::-webkit-inner-spin-button,
+.welcome-number::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
