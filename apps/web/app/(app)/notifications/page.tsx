@@ -3,6 +3,7 @@ import { requireDashboardData } from "@/lib/data";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { NoticeFeed } from "@/components/notices/NoticeFeed";
 import { BlackNotice } from "@/components/black/BlackNotice";
+import { FormulaNotice } from "@/components/notices/FormulaNotice";
 
 export const metadata: Metadata = { title: "Notifications" };
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function NotificationsPage() {
         description="Newest first."
       />
       <BlackNotice />
+      <FormulaNotice />
       <NoticeFeed
         notifications={data.notifications}
         nowIso={new Date().toISOString()}
