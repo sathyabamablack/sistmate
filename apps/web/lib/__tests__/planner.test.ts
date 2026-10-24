@@ -60,11 +60,11 @@ describe("plannerSubjects", () => {
 });
 
 describe("computePlan", () => {
-  it("builds internal from CAEs and the 25 default, and plans the external for the target grade", () => {
+  it("builds internal from CAEs and the 20 default, and plans the external for the target grade", () => {
     const plan = computePlan(defaultState(), subjects);
     const a = plan.subjects[0]!;
-    expect(a.internal).toBe(46); // (40 + 30) x 0.3 + 25
-    expect(a.needed).toBe(34); // 80 for grade A+, minus 46
+    expect(a.internal).toBe(41); // (40 + 30) x 0.3 + 20
+    expect(a.needed).toBe(39); // 80 for grade A+, minus 41
     expect(a.planned).toBe(true);
     expect(a.total).toBe(80);
     expect(a.grade).toBe("A+");
@@ -90,24 +90,24 @@ describe("computePlan", () => {
     const x = plan.subjects[0]!;
     expect(x.reachable).toBe(false);
     expect(x.external).toBe(50);
-    expect(x.total).toBe(75); // 25 + 50
+    expect(x.total).toBe(70); // 20 + 50
   });
 
   it("computes the semester GPA from included subjects only, weighted by credits", () => {
     const state = withInputs({
-      CS101: { external: "45", credits: "4" }, // internal 46 + 45 = 91 -> A++ (10)
+      CS101: { external: "45", credits: "4" }, // internal 41 + 45 = 86 -> A+ (9)
       CS102: { include: false, credits: "10" },
     });
     const plan = computePlan(state, subjects);
     expect(plan.credits).toBe(4);
-    expect(plan.gpa).toBe(10);
+    expect(plan.gpa).toBe(9);
   });
 
   it("projects CGPA only when previous CGPA and credits are both given", () => {
     const state = withInputs({ CS101: { external: "45", credits: "4" }, CS102: { include: false } });
     expect(computePlan(state, subjects).cgpa).toBeNull();
     const withPrev = { ...state, previous: { cgpa: "8", credits: "36" } };
-    expect(computePlan(withPrev, subjects).cgpa).toBe(8.2); // (8x36 + 10x4) / 40
+    expect(computePlan(withPrev, subjects).cgpa).toBe(8.1); // (8x36 + 9x4) / 40
   });
 
   it("clamps an over-large external to the maximum", () => {
@@ -171,7 +171,7 @@ describe("per-subject target grade", () => {
     const [a, b] = plan.subjects;
     expect(a!.target).toBe("A++");
     expect(a!.targetMin).toBe(90);
-    expect(a!.needed).toBe(44); // 90 - 46
+    expect(a!.needed).toBe(49); // 90 - 41
     expect(b!.target).toBe("A+");
     expect(b!.targetMin).toBe(80);
   });
@@ -183,7 +183,7 @@ describe("per-subject target grade", () => {
 
   it("reports the best grade possible when a target is out of reach", () => {
     const plan = computePlan(withInputs({ CS102: { target: "A++" } }), subjects);
-    const b = plan.subjects[1]!; // internal 25 (no CAE), 25 + 50 = 75
+    const b = plan.subjects[1]!; // internal 20 (no CAE), 20 + 50 = 70
     expect(b.reachable).toBe(false);
     expect(b.bestGrade).toBe("B++");
   });
@@ -246,14 +246,14 @@ describe("grading preset scale", () => {
 describe("summaryGuidance", () => {
   it("gives the average and the hardest subject, and what is out of reach", () => {
     const lines = summaryGuidance(computePlan(withInputs({}), subjects), 50);
-    // CS101 needs 34; CS102 (internal 25) would need 55 for A+
-    expect(lines[0]).toBe("In the other subject you need 34 external marks on average out of 50; the hardest is Networks (34).");
+    // CS101 needs 39; CS102 (internal 20) would need 60 for A+
+    expect(lines[0]).toBe("In the other subject you need 39 external marks on average out of 50; the hardest is Networks (39).");
     expect(lines[1]).toBe("Out of reach: OS for A+ (best possible B++).");
   });
 
   it("uses the 'every subject' wording when nothing is out of reach", () => {
     const lines = summaryGuidance(computePlan(withInputs({ CS102: { include: false } }), subjects), 50);
-    expect(lines).toEqual(["To get A+ in every subject you need 34 external marks on average out of 50; the hardest is Networks (34)."]);
+    expect(lines).toEqual(["To get A+ in every subject you need 39 external marks on average out of 50; the hardest is Networks (39)."]);
   });
 
   it("says so when everything is already secured", () => {
@@ -271,7 +271,7 @@ describe("summaryGuidance", () => {
 });
 
 describe("target semester GPA", () => {
-  // internal = (40 + 40) x 0.3 + 25 = 49 in both subjects
+  // internal = (40 + 40) x 0.3 + 20 = 44 in both subjects
   const two = [
     { code: "A", title: "Alpha", cae1: 40, cae2: 40 },
     { code: "B", title: "Beta", cae1: 40, cae2: 40 },
@@ -291,7 +291,7 @@ describe("target semester GPA", () => {
   it("reports the best reachable GPA when the target is out of reach", () => {
     const goal = findGradeForGpa(defaultState(), [{ code: "X", title: "X", cae1: 0, cae2: 0 }], 9.5);
     expect(goal.grade).toBeNull();
-    expect(goal.bestGpa).toBe(8); // 25 + 50 = 75 is a B++ (8 points)
+    expect(goal.bestGpa).toBe(8); // 20 + 50 = 70 is a B++ (8 points)
   });
 });
 
@@ -337,7 +337,7 @@ describe("estimated previous standing", () => {
       withInputs({ CS101: { external: "45", credits: "4" }, CS102: { include: false } }),
       { cgpa: "8", credits: "36" },
     );
-    expect(computePlan(state, subjects).cgpa).toBe(8.2);
+    expect(computePlan(state, subjects).cgpa).toBe(8.1);
   });
 });
 

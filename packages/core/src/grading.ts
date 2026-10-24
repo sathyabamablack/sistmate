@@ -26,7 +26,7 @@ export interface InternalSettings {
 export const DEFAULT_INTERNAL_SETTINGS: InternalSettings = { caeWeight: 0.3, internalMax: 50 };
 
 /** Default marks for assignment + attendance, which the student can change per subject. */
-export const DEFAULT_ASSIGNMENT_ATTENDANCE = 25;
+export const DEFAULT_ASSIGNMENT_ATTENDANCE = 20;
 
 /** Highest mark the semester exam carries. */
 export const DEFAULT_EXTERNAL_MAX = 50;
