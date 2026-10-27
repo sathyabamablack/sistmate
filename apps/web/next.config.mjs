@@ -19,11 +19,13 @@ const BUILD_ID = readBuildId();
 
 /**
  * Where the browser loads /_next/static (JS, CSS, fonts) from. Unset: this site, as usual.
- * scripts/deploy-prod.mjs sets it to a Cloudflare Pages copy of the build's static files, so those
+ * scripts/deploy-prod.mjs sets it to a Cloudflare copy of the build's static files, so those
  * requests don't count against the Vercel plan. The files stay on Vercel too.
  */
 const ASSET_PREFIX = (process.env.ASSET_PREFIX || "").replace(/\/+$/, "");
 const ASSET_ORIGIN = ASSET_PREFIX ? ` ${new URL(ASSET_PREFIX).origin}` : "";
+/** The question papers Worker (lib/papers.ts), which the browser calls directly. */
+const PAPERS_ORIGIN = process.env.PAPERS_API_URL ? ` ${new URL(process.env.PAPERS_API_URL.trim()).origin}` : "";
 
 const securityHeaders = [
   // Inline styles/scripts are needed for the theme boot script and Next's runtime.
@@ -38,7 +40,7 @@ const securityHeaders = [
       "img-src 'self' data: blob: https:",
       `font-src 'self' data:${ASSET_ORIGIN}`,
       // The service worker fetches (and caches) the static files from the asset host.
-      `connect-src 'self'${ASSET_ORIGIN}`,
+      `connect-src 'self'${ASSET_ORIGIN}${PAPERS_ORIGIN}`,
       "worker-src 'self'",
       "manifest-src 'self'",
       "frame-ancestors 'none'",

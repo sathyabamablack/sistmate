@@ -76,6 +76,8 @@ export async function setPrefs(
 export async function apiLogin(page: Page, username = uniqueRegisterNumber()): Promise<string> {
   const res = await page.request.post("/api/auth/login", {
     data: { username, password: "e2e-password" },
+    // Its own client "IP" too, for specs that turn off the context-wide header (papers.spec.ts).
+    headers: { "X-Forwarded-For": `10.${rand(256)}.${rand(256)}.${1 + rand(254)}` },
   });
   expect(res.ok(), `API login failed: ${res.status()} ${await res.text()}`).toBe(true);
   await markTourDone(page.context(), new URL(res.url()).origin);

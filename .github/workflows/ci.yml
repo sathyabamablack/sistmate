@@ -109,6 +109,8 @@ jobs:
         env:
           DATA_SOURCE: mock
           SESSION_SECRET: ci-only-secret-at-least-32-characters-long
+          # The local papers Worker the e2e config starts; the CSP must allow it.
+          PAPERS_API_URL: http://localhost:8788
 
       - name: End-to-end tests
         run: npm run test:e2e --workspace apps/web

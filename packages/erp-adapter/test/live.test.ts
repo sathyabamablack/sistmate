@@ -140,9 +140,15 @@ describe("live ERP adapter (REST API)", () => {
     const session = JSON.parse(result.session!);
     expect(session).toMatchObject({ token: "jwt-test-token-123", regNo: "41110234", studentId: "9001" });
     expect(result.session).not.toContain("01-01-2006");
-    // Login goes to the login service's /api/login with just register number + password.
+    // Login goes to the login service's /api/login with just register number + password, in both
+    // casings (the Worker backend takes camelCase, the ERP itself PascalCase).
     expect(seen[0]!.url).toContain("/api/login");
-    expect(seen[0]!.body).toEqual({ RegisterNumber: "41110234", Password: "01-01-2006" });
+    expect(seen[0]!.body).toEqual({
+      RegisterNumber: "41110234",
+      Password: "01-01-2006",
+      registerNumber: "41110234",
+      password: "01-01-2006",
+    });
   });
 
   it("rejects bad credentials with an error message", async () => {

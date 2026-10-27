@@ -58,3 +58,8 @@ apps/web/.build-id
 
 # browser snapshots from local Playwright MCP sessions
 .playwright-mcp/
+
+# papers Worker: generated runtime types, local secrets and local state
+workers/papers/worker-configuration.d.ts
+workers/papers/.dev.vars
+.wrangler/

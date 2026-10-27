@@ -19,3 +19,13 @@ blob-report/
 *.log
 *.tsbuildinfo
 .playwright-mcp/
+
+# Written by the build itself (apps/web/scripts/*.mjs); a stale local copy must never be uploaded.
+apps/web/public/sw-version.js
+apps/web/public/usp-assets.json
+apps/web/.build-id
+**/.next-*/
+# Papers Worker local state and generated types (deployed with wrangler, not Vercel).
+**/.wrangler/
+workers/papers/worker-configuration.d.ts
+workers/papers/.dev.vars

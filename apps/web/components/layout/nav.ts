@@ -8,6 +8,7 @@ import {
   Wallet,
   Bell,
   BookOpen,
+  FileText,
   Settings,
   Heart,
   type LucideIcon,
@@ -97,6 +98,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: BookOpen,
     description: "LMS courses and assignments",
     tab: true,
+  },
+  {
+    href: "/papers",
+    group: "Learning",
+    label: "Question papers",
+    icon: FileText,
+    description: "Previous exam papers for your subjects",
   },
   {
     href: "/settings",

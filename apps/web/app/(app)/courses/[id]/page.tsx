@@ -19,6 +19,9 @@ import { CourseMaterials, type MaterialFile } from "@/components/courses/CourseM
 import { UnitList } from "@/components/courses/UnitList";
 import { UnitNav } from "@/components/courses/UnitNav";
 import { fileHref, fileTypeShort, formatDay, formatSize, isViewable, relativeTo } from "@/components/courses/format";
+import { CoursePapers } from "@/components/papers/CoursePapers";
+import { erpSubjects } from "@/lib/course-names";
+import { papersAccess } from "@/lib/papers";
 
 export const dynamic = "force-dynamic";
 // Loading one course takes several Moodle calls on a cold cache.
@@ -48,7 +51,7 @@ export default async function CoursePage({ params }: Props) {
   const course = data.courses.find((c) => c.id === courseId);
   if (!course) notFound();
 
-  const view = await loadCourseContents(courseId);
+  const [view, papers] = await Promise.all([loadCourseContents(courseId), papersAccess()]);
   if (view.status === "signed-out") redirect("/login");
   if (view.status === "expired") redirect("/api/auth/expired");
 
@@ -156,6 +159,16 @@ export default async function CoursePage({ params }: Props) {
           <UnitList sections={units} courseId={courseId} now={now} />
         </CourseMaterials>
       )}
+
+      {papers && course.displayCode ? (
+        <div className="mt-10">
+          <CoursePapers
+            client={papers}
+            subject={{ code: course.displayCode, title: course.displayName ?? course.fullName }}
+            subjects={erpSubjects(data.attendance, data.timetable)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

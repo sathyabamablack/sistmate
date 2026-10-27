@@ -1,0 +1,27 @@
+{
+  // Question papers API for SISTmate (see packages/core/src/papers.ts for the shared rules).
+  // Secret, set with `wrangler secret put PAPERS_SIGNING_KEY` (same value as the web app's).
+  "name": "sistmate-papers",
+  "account_id": "87dedc77eafe008c40567ce15e01e206",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  // Every 13 minutes: keeps the ERP's Render login service awake (see wakeErpLogin in src/index.ts).
+  "triggers": { "crons": ["*/13 * * * *"] },
+  "vars": {
+    // Pages allowed to call the API from the browser (comma-separated origins).
+    "ALLOWED_ORIGINS": "https://sistmate.vercel.app,https://sathyabama-student-portal.vercel.app"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sistmate-papers",
+      "database_id": "842ed75f-966c-4a31-a1fd-b77b190813af",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Paper files (PDF), key "paper/<id>". KV because R2 needs a payment card on the account.
+  "kv_namespaces": [{ "binding": "FILES", "id": "232df3a3364c443488385357bfde85d0" }]
+}
