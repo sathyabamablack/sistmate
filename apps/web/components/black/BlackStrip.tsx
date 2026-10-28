@@ -61,7 +61,7 @@ export function BlackStrip() {
         <span className="sr-only">
           {phase === "open"
             ? "Sathyabama Black is open. Enter."
-            : "Sathyabama Black opens Wednesday 28 October, 11:00 IST. Take a look."}
+            : "Sathyabama Black opens Friday 30 October, 11 pm IST. Take a look."}
         </span>
       </Link>
       <button

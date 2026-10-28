@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { OPENS_AT, blackPhase, pad2, splitCountdown } from "../black";
 
 describe("sathyabama black countdown", () => {
-  it("opens Wednesday 28 October 2026 at 11:00 IST", () => {
+  it("opens Friday 30 October 2026 at 11 pm IST", () => {
     const d = new Date(OPENS_AT);
-    expect(d.toISOString()).toBe("2026-10-28T05:30:00.000Z");
-    expect(new Date(OPENS_AT + 5.5 * 3600_000).getUTCDay()).toBe(3);
+    expect(d.toISOString()).toBe("2026-10-30T17:30:00.000Z");
+    expect(new Date(OPENS_AT + 5.5 * 3600_000).getUTCDay()).toBe(5);
   });
 
   it("splits milliseconds into days, hours, minutes and seconds", () => {

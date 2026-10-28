@@ -6,8 +6,8 @@
 
 export const BLACK_PATH = "/black";
 
-/** Wed 28 Oct 2026, 11:00 IST. */
-export const OPENS_AT = Date.parse("2026-10-28T11:00:00+05:30");
+/** Fri 30 Oct 2026, 11 pm (23:00) IST. */
+export const OPENS_AT = Date.parse("2026-10-30T23:00:00+05:30");
 
 export type BlackPhase = "before" | "open";
 

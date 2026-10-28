@@ -256,8 +256,8 @@ export function BlackCountdown() {
               aria-live="off"
               aria-label={
                 t
-                  ? `${t.days} days, ${t.hours} hours, ${t.minutes} minutes, ${t.seconds} seconds until it opens, Wednesday 28 October, 11:00 IST`
-                  : "Opens Wednesday 28 October, 11:00 IST"
+                  ? `${t.days} days, ${t.hours} hours, ${t.minutes} minutes, ${t.seconds} seconds until it opens, Friday 30 October, 11 pm IST`
+                  : "Opens Friday 30 October, 11 pm IST"
               }
               className={`${mono.className} sb-rise mt-10 grid w-full max-w-[60rem] grid-cols-4 [animation-delay:300ms] sm:mt-10`}
             >
@@ -293,7 +293,7 @@ export function BlackCountdown() {
             >
               coming soon<span className="sb-dot text-[#e01b24]">.</span>
             </p>
-            <p className="sr-only">Opens Wednesday 28 October, 11:00 IST.</p>
+            <p className="sr-only">Opens Friday 30 October, 11 pm IST.</p>
           </>
         )}
       </main>

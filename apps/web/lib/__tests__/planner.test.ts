@@ -5,12 +5,15 @@ import {
   defaultState,
   estimatedPrevious,
   findGradeForGpa,
+  goalStatus,
   gpaForTargetCgpa,
   parseNumber,
   parseState,
   plannerSubjects,
+  resolveGoal,
   sanitizeNumber,
   summaryGuidance,
+  toPaper,
   withCourses,
   withPresetScale,
   withPreviousFallback,
@@ -307,6 +310,84 @@ describe("target CGPA", () => {
   });
 });
 
+describe("aiming for a number", () => {
+  // internal = (40 + 40) x 0.3 + 20 = 44 in both subjects
+  const two = [
+    { code: "A", title: "Alpha", cae1: 40, cae2: 40 },
+    { code: "B", title: "Beta", cae1: 40, cae2: 40 },
+  ];
+  const aiming = (goal: { kind: "gpa" | "cgpa"; value: string }, extra: Partial<PlannerState> = {}): PlannerState => ({
+    ...defaultState(),
+    ...extra,
+    settings: { ...defaultState().settings, goal },
+  });
+
+  it("keeps the goal through storage and drops a malformed one", () => {
+    const state = aiming({ kind: "cgpa", value: "8.5" });
+    expect(parseState(JSON.stringify(state)).settings.goal).toEqual({ kind: "cgpa", value: "8.5" });
+    const bad = { ...state, settings: { ...state.settings, goal: { kind: "rank", value: "1" } } };
+    expect(parseState(JSON.stringify(bad)).settings.goal).toBeUndefined();
+  });
+
+  it("plans the grade target when no number is typed", () => {
+    const resolved = resolveGoal(aiming({ kind: "gpa", value: "" }), two);
+    expect(resolved.number).toBeUndefined();
+    expect(resolved.plan.subjects[0]!.target).toBe("A+");
+  });
+
+  it("works a semester GPA back to the lowest grade, in every subject", () => {
+    const resolved = resolveGoal(aiming({ kind: "gpa", value: "8" }, { subjects: { A: { target: "A++" } } }), two);
+    expect(resolved.number).toMatchObject({ grade: "B++", needGpa: 8 });
+    expect(resolved.plan.subjects.map((s) => s.target)).toEqual(["B++", "B++"]);
+    expect(resolved.plan.gpa).toBe(8);
+  });
+
+  it("works a CGPA back through the semester GPA it takes", () => {
+    // 6 credits after 60 at 8.0: reaching 8.1 takes (8.1 x 66 - 480) / 6 = 9.1
+    const state = aiming({ kind: "cgpa", value: "8.1" }, { previous: { cgpa: "8", credits: "60" } });
+    const resolved = resolveGoal(state, two);
+    expect(resolved.number!.needGpa).toBe(9.1);
+    expect(resolved.number!.grade).toBe("A++");
+  });
+
+  it("asks for the CGPA so far before a CGPA goal can be worked out", () => {
+    expect(resolveGoal(aiming({ kind: "cgpa", value: "8" }), two).number!.issue).toBe("needs-previous");
+  });
+
+  it("shows the best effort when the number is out of reach", () => {
+    const resolved = resolveGoal(aiming({ kind: "gpa", value: "9.9" }), [{ code: "X", title: "X", cae1: 0, cae2: 0 }]);
+    expect(resolved.number).toMatchObject({ grade: null, issue: "out-of-reach", bestGpa: 8 });
+    expect(resolved.plan.subjects[0]!.target).toBe("A++");
+  });
+
+  it("needs a counted subject", () => {
+    const state = aiming({ kind: "gpa", value: "8" }, { subjects: { A: { include: false }, B: { include: false } } });
+    expect(resolveGoal(state, two).number!.issue).toBe("no-credits");
+  });
+});
+
+describe("goalStatus", () => {
+  it("sums up what the counted exams need and what is out of reach", () => {
+    const status = goalStatus(
+      computePlan(defaultState(), [
+        { code: "A", title: "Alpha", cae1: 40, cae2: 40 }, // internal 44: A+ needs 36
+        { code: "B", title: "Beta", cae1: 30, cae2: 30 }, // internal 38: A+ needs 42
+        { code: "C", title: "Gamma", cae1: 0, cae2: 0 }, // internal 20: A+ is out of reach
+      ]),
+    )!;
+    expect(status.needing).toBe(2);
+    expect(status.averageNeeded).toBe(39);
+    expect(status.outOf).toBe(50);
+    expect(status.outOfReach.map((p) => p.code)).toEqual(["C"]);
+    expect(status.sharedTarget).toBe("A+");
+    expect(status.allSecured).toBe(false);
+  });
+
+  it("is null when nothing with an exam is counted", () => {
+    expect(goalStatus(computePlan(withInputs({ CS101: { include: false }, CS102: { include: false } }), subjects))).toBeNull();
+  });
+});
+
 describe("estimated previous standing", () => {
   const sem = (over: Record<string, unknown>) =>
     ({ name: "S", results: [], gpa: 8, credits: 20, estimated: true, ...over }) as never;
@@ -407,7 +488,46 @@ describe("official course facts", () => {
       externalMax: 50,
       maxTotal: 100,
       audit: false,
+      paperMax: 50,
       source: "estimated",
     });
+  });
+
+  it("a theory exam is written for 100 and converted to 50; others keep their own scale", () => {
+    const resolved = (type: "theory" | "practical", externalMax: number) => () => ({
+      credits: 3,
+      type,
+      maxTotal: 100,
+      internalMax: 100 - externalMax,
+      externalMax,
+      audit: false,
+      source: "official" as const,
+      regulation: "2023" as const,
+      creditSource: "official" as const,
+    });
+    const one = [{ code: "X", title: "X", cae1: null, cae2: null }];
+    expect(withCourses(one, resolved("theory", 50))[0]!.course!.paperMax).toBe(100);
+    expect(withCourses(one, resolved("practical", 50))[0]!.course!.paperMax).toBe(50);
+    expect(withCourses(one, resolved("theory", 100))[0]!.course!.paperMax).toBe(100);
+  });
+
+  it("states the marks needed on the paper's own scale", () => {
+    expect(toPaper(49, 50, 100)).toBe(98);
+    expect(toPaper(24.5, 50, 100)).toBe(49);
+    expect(toPaper(40, 50, 50)).toBe(40);
+    // internal 44, so A+ needs 36 of 50: 72 on a paper written for 100
+    const plan = computePlan(defaultState(), [
+      { code: "T", title: "Theory", cae1: 40, cae2: 40, course: { ...theory, paperMax: 100 } },
+      { code: "P", title: "Practical", cae1: 40, cae2: 40, course: theory },
+    ]);
+    expect(plan.subjects.map((x) => [x.needed, x.paperNeeded, x.paperMax])).toEqual([
+      [36, 72, 100],
+      [36, 36, 50],
+    ]);
+    // The summary keeps theory papers apart from exams marked as they are.
+    expect(goalStatus(plan)!.papers).toEqual([
+      { converted: true, paperMax: 100, externalMax: 50, count: 1, averagePaperNeeded: 72, averageNeeded: 36 },
+      { converted: false, paperMax: 50, externalMax: 50, count: 1, averagePaperNeeded: 36, averageNeeded: 36 },
+    ]);
   });
 });

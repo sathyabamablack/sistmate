@@ -33,7 +33,7 @@ export function BlackNotice() {
         <span className="sr-only">
           {phase === "open"
             ? "Sathyabama Black is open."
-            : "Something is coming. Sathyabama Black opens Wednesday 28 October, 11:00 IST."}
+            : "Something is coming. Sathyabama Black opens Friday 30 October, 11 pm IST."}
         </span>
       </span>
       <span aria-hidden className="mt-1 text-[#e01b24] transition-transform group-hover:translate-x-0.5">

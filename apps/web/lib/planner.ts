@@ -40,6 +40,15 @@ export interface PlannerSettings {
    * grading preset chosen in Settings. Absent in states saved before presets existed.
    */
   scaleEdited?: boolean;
+  /** Aim for a number instead of `targetGrade`. Absent means aim for the grade. */
+  goal?: NumberGoal;
+}
+
+/** A semester GPA or CGPA to aim for; the planner works out the grade it takes. */
+export interface NumberGoal {
+  kind: "gpa" | "cgpa";
+  /** As typed, so a half-typed "8." survives a reload. */
+  value: string;
 }
 
 /** What the student typed for one subject. Blank string = use the default. */
@@ -228,6 +237,12 @@ export function parseState(json: string | null | undefined): PlannerState {
     }
   }
 
+  const g = (s.goal ?? {}) as Record<string, unknown>;
+  const goal: NumberGoal | undefined =
+    (g.kind === "gpa" || g.kind === "cgpa") && typeof g.value === "string"
+      ? { kind: g.kind, value: g.value.slice(0, 6) }
+      : undefined;
+
   const p = (r.previous ?? {}) as Record<string, unknown>;
   return {
     v: 1,
@@ -239,6 +254,7 @@ export function parseState(json: string | null | undefined): PlannerState {
       targetGrade,
       scale,
       ...(scaleEdited === undefined ? {} : { scaleEdited }),
+      ...(goal ? { goal } : {}),
     },
     previous: {
       cgpa: typeof p.cgpa === "string" ? p.cgpa.slice(0, 6) : "",
@@ -265,6 +281,11 @@ export interface PlannerCourse {
   maxTotal: number;
   /** Zero-credit audit course: left out of the GPA by default. */
   audit: boolean;
+  /**
+   * What the exam paper is written out of, before conversion to `externalMax`. A theory
+   * exam is written for 100 and converted to 50; other exams are marked on their own maximum.
+   */
+  paperMax?: number;
   /** official = curriculum, estimated = code-pattern guess, custom = the student's correction */
   source: CreditSource;
 }
@@ -312,6 +333,7 @@ export function withCourses(
         externalMax: c.externalMax,
         maxTotal: c.maxTotal,
         audit: c.audit,
+        paperMax: c.type === "theory" && c.externalMax === 50 ? 100 : c.externalMax,
         source: c.creditSource,
       },
     };
@@ -334,6 +356,10 @@ export interface SubjectPlan {
   maxTotal: number;
   /** Whole exam marks needed to pass (30% of the exam maximum, rounded up). */
   externalMin: number;
+  /** What the exam paper is written out of; equals `externalMax` unless it is converted. */
+  paperMax: number;
+  /** `needed` on the paper's own scale (98 of 100 for 49 of 50). */
+  paperNeeded: number;
   internal: number;
   /** External the student typed, or null when they haven't. */
   externalEntered: number | null;
@@ -395,6 +421,7 @@ export function computePlan(
     const course = s.course;
     const internalMax = course?.internalMax ?? settings.internalMax;
     const externalMax = course?.externalMax ?? settings.externalMax;
+    const paperMax = course?.paperMax ?? externalMax;
     const maxTotal = course?.maxTotal ?? internalMax + externalMax;
     const maxima = { maxTotal, externalMax };
     const target = settings.scale.find((b) => b.grade === input.target) ?? semesterTarget;
@@ -423,6 +450,7 @@ export function computePlan(
       ...(course ? { creditSource: course.source } : {}),
       audit: course?.audit ?? false,
       internalMax, externalMax, maxTotal, externalMin, internal,
+      paperMax, paperNeeded: toPaper(needed, externalMax, paperMax),
       externalEntered: entered, external, planned: entered === null,
       needed, reachable, secured: req.secured,
       target: target.grade, targetMin: target.min, targetTotal,
@@ -443,6 +471,12 @@ export function computePlan(
       : null;
 
   return { subjects: plans, gpa, credits, cgpa, targetMin: semesterTarget.min };
+}
+
+/** Converted exam marks on the paper's own scale, rounded up to a whole mark. */
+export function toPaper(marks: number, externalMax: number, paperMax: number): number {
+  if (!(externalMax > 0) || paperMax === externalMax) return marks;
+  return Math.ceil((marks * paperMax) / externalMax - 1e-9);
 }
 
 const oneDecimal = (n: number) => String(Math.round(n * 10) / 10);
@@ -540,4 +574,126 @@ export function gpaForTargetCgpa(
   if (credits <= 0) return null;
   const gpa = (targetCgpa * (prevCredits + credits) - prevCgpa * prevCredits) / credits;
   return Math.max(0, Math.ceil(gpa * 100 - 1e-9) / 100);
+}
+
+export interface ResolvedGoal {
+  /** The plan the page shows: for the number goal when it can be met, else for the grade target. */
+  plan: PlannerResult;
+  /** Set when a number goal is typed. */
+  number?: {
+    kind: NumberGoal["kind"];
+    target: number;
+    /** Semester GPA the goal takes (the target itself for "gpa"); null when it can't be worked out. */
+    needGpa: number | null;
+    /** Lowest grade, in every subject, that gets there; null when it can't. */
+    grade: string | null;
+    /** Why there is no grade: nothing counted, no CGPA so far, or more than the marks allow. */
+    issue?: "no-credits" | "needs-previous" | "out-of-reach";
+    /** Highest semester GPA the current marks allow, for "out-of-reach". */
+    bestGpa?: number;
+  };
+}
+
+/**
+ * The plan for whatever the student aims for. A number goal is worked back to the lowest
+ * grade that meets it, taken in every subject (per-subject targets step aside). When the
+ * number is out of reach the plan shows the best grade everywhere, so the subjects still
+ * say what full effort gets.
+ */
+export function resolveGoal(state: PlannerState, subjects: PlannerSubject[]): ResolvedGoal {
+  const plan = computePlan(state, subjects);
+  const goal = state.settings.goal;
+  const target = parseNumber(goal?.value);
+  if (!goal || target === null) return { plan };
+  const base = { kind: goal.kind, target, needGpa: null, grade: null };
+  if (plan.credits <= 0) return { plan, number: { ...base, issue: "no-credits" } };
+
+  let needGpa = target;
+  if (goal.kind === "cgpa") {
+    const prevCgpa = parseNumber(state.previous.cgpa);
+    const prevCredits = parseNumber(state.previous.credits);
+    if (prevCgpa === null || prevCredits === null || prevCredits <= 0) {
+      return { plan, number: { ...base, issue: "needs-previous" } };
+    }
+    needGpa = gpaForTargetCgpa(target, prevCgpa, prevCredits, plan.credits) ?? target;
+  }
+
+  const found = findGradeForGpa(state, subjects, needGpa);
+  if (found.grade && found.plan) {
+    return { plan: found.plan, number: { ...base, needGpa, grade: found.grade } };
+  }
+  const top = sortScale(state.settings.scale).find((b) => b.points > 0)!;
+  return {
+    plan: planForGrade(state, subjects, top.grade),
+    number: { ...base, needGpa, issue: "out-of-reach", bestGpa: found.bestGpa },
+  };
+}
+
+export interface GoalStatus {
+  /** Counted subjects that still need exam marks for their target, and the average needed. */
+  needing: number;
+  averageNeeded: number;
+  /** Shared exam maximum, or null when the counted subjects differ. */
+  outOf: number | null;
+  /**
+   * The subjects that still need exam marks, grouped by how their exam is marked: converted
+   * theory papers (written for 100) first, then each other exam maximum.
+   */
+  papers: PaperGroup[];
+  /** Counted subjects whose target is out of reach even with a full exam. */
+  outOfReach: SubjectPlan[];
+  /** Every counted subject's target is already secured by its internal marks. */
+  allSecured: boolean;
+  /** The one target every counted subject shares, or null when they differ. */
+  sharedTarget: string | null;
+}
+
+export interface PaperGroup {
+  /** Written for `paperMax` and converted to `externalMax` (theory), rather than marked as is. */
+  converted: boolean;
+  paperMax: number;
+  externalMax: number;
+  count: number;
+  /** Average marks needed on the paper, and after conversion. */
+  averagePaperNeeded: number;
+  averageNeeded: number;
+}
+
+const average = (xs: number[]) =>
+  xs.length ? Math.round((xs.reduce((sum, x) => sum + x, 0) / xs.length) * 10) / 10 : 0;
+
+/** The few facts the page sums the plan up with, for subjects counted in the GPA. */
+export function goalStatus(plan: PlannerResult): GoalStatus | null {
+  const counted = plan.subjects.filter((p) => p.included && p.externalMax > 0);
+  if (counted.length === 0) return null;
+  const needing = counted.filter((p) => p.reachable && !p.secured);
+  const maxima = new Set(counted.map((p) => p.externalMax));
+  const targets = new Set(counted.map((p) => p.target));
+  const outOfReach = counted.filter((p) => !p.reachable);
+
+  const byScale = new Map<string, SubjectPlan[]>();
+  for (const p of needing) {
+    const key = `${p.paperMax}/${p.externalMax}`;
+    byScale.set(key, [...(byScale.get(key) ?? []), p]);
+  }
+  const papers: PaperGroup[] = [...byScale.values()]
+    .map((group) => ({
+      converted: group[0]!.paperMax !== group[0]!.externalMax,
+      paperMax: group[0]!.paperMax,
+      externalMax: group[0]!.externalMax,
+      count: group.length,
+      averagePaperNeeded: average(group.map((p) => p.paperNeeded)),
+      averageNeeded: average(group.map((p) => p.needed)),
+    }))
+    .sort((a, b) => Number(b.converted) - Number(a.converted) || b.paperMax - a.paperMax);
+
+  return {
+    needing: needing.length,
+    averageNeeded: average(needing.map((p) => p.needed)),
+    outOf: maxima.size === 1 ? [...maxima][0]! : null,
+    papers,
+    outOfReach,
+    allSecured: needing.length === 0 && outOfReach.length === 0,
+    sharedTarget: targets.size === 1 ? [...targets][0]! : null,
+  };
 }

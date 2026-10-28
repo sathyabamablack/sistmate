@@ -28,7 +28,7 @@ export default async function CalculatorPage() {
     <div>
       <PageHeader
         title="CGPA planner"
-        description="Build your internal marks from CAE 1 and CAE 2, then see what you need in the semester exam for the grade you want, using the official Sathyabama grades and credits."
+        description="Pick the grade or GPA you want. Each subject shows the semester exam marks it takes, using the official Sathyabama grades and credits."
       />
       {subjects.length > 0 ? (
         <Planner

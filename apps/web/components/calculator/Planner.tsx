@@ -1,27 +1,30 @@
 "use client";
 
 import * as React from "react";
+import { AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { DEFAULT_GRADE_SCALE, type CreditSource, type GradeBand } from "@usp/core";
 import { Section } from "@/components/ui/Section";
 import { fieldClass, labelClass } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_CREDITS,
-  computePlan,
   defaultState,
-  findGradeForGpa,
-  gpaForTargetCgpa,
+  goalStatus,
   parseNumber,
   parseState,
+  resolveGoal,
   sanitizeNumber,
-  summaryGuidance,
   withPreviousFallback,
   withPresetScale,
+  type GoalStatus,
+  type NumberGoal,
+  type PaperGroup,
   type PlannerResult,
   type PlannerSettings,
   type PlannerState,
   type PlannerSubject,
   type PreviousStanding,
+  type ResolvedGoal,
   type SubjectInput,
   type SubjectPlan,
 } from "@/lib/planner";
@@ -67,8 +70,13 @@ function save(next: PlannerState) {
   listeners.forEach((l) => l());
 }
 
+/**
+ * One subject per row. On phones the row stacks: name and result, then the internal
+ * marks, then the exam. From lg up the groups dissolve (`lg:contents`) into one grid row
+ * under the column headings.
+ */
 const COLUMNS =
-  "lg:grid-cols-[minmax(0,1.6fr)_4.25rem_4.25rem_4.75rem_3.75rem_4.75rem_3.25rem_3.25rem_3.75rem_2.75rem]";
+  "lg:grid-cols-[1.5rem_minmax(0,1.6fr)_4.25rem_4.25rem_4.75rem_3.5rem_minmax(11rem,1fr)_4.5rem]";
 
 const gradeOption = (b: GradeBand) => `${b.grade} (${b.min}% or more)`;
 /** Only passing bands make sense as a target. */
@@ -78,6 +86,14 @@ const SOURCE_LABEL: Record<CreditSource, string> = {
   estimated: "estimated",
   custom: "edited",
 };
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+type AimKind = "grade" | NumberGoal["kind"];
+const AIMS: { kind: AimKind; label: string }[] = [
+  { kind: "grade", label: "Grade" },
+  { kind: "gpa", label: "Semester GPA" },
+  { kind: "cgpa", label: "CGPA" },
+];
 
 export function Planner({
   subjects,
@@ -102,23 +118,32 @@ export function Planner({
     () => withPreviousFallback(base, estimatedPrevious),
     [base, estimatedPrevious],
   );
-  const plan = React.useMemo(() => computePlan(state, subjects), [state, subjects]);
+  const resolved = React.useMemo(() => resolveGoal(state, subjects), [state, subjects]);
+  const plan = resolved.plan;
+  // While aiming for a number, one grade is worked out for every subject.
+  const aimingForNumber = !!resolved.number;
 
   const patchSubject = (code: string, patch: Partial<SubjectInput>) =>
     save({ ...base, subjects: { ...base.subjects, [code]: { ...base.subjects[code], ...patch } } });
   const patchSettings = (patch: Partial<PlannerSettings>) =>
     save({ ...base, settings: { ...base.settings, ...patch } });
-  /** Make one grade everyone's target, dropping per-subject choices. */
-  const useSemesterTarget = (grade: string) =>
-    save({
-      ...base,
-      settings: { ...base.settings, targetGrade: grade },
-      subjects: Object.fromEntries(
-        Object.entries(base.subjects).map(([code, input]) => [code, { ...input, target: undefined }]),
-      ),
-    });
+  const setAim = (kind: AimKind) => {
+    const current = base.settings.goal;
+    if (kind === "grade") {
+      // Keep the grade the number worked out to, so switching back shows the same plan.
+      const settings: PlannerSettings = {
+        ...base.settings,
+        targetGrade: resolved.number?.grade ?? base.settings.targetGrade,
+      };
+      delete settings.goal;
+      save({ ...base, settings });
+    } else if (current?.kind !== kind) {
+      patchSettings({ goal: { kind, value: current?.value ?? "" } });
+    }
+  };
+  const setPrevious = (patch: Partial<PlannerState["previous"]>) =>
+    save({ ...base, previous: { ...base.previous, ...patch } });
 
-  const target = state.settings.targetGrade;
   const fromEstimate = {
     cgpa: !!estimatedPrevious && base.previous.cgpa.trim() === "",
     credits: !!estimatedPrevious && base.previous.credits.trim() === "",
@@ -126,16 +151,24 @@ export function Planner({
 
   return (
     <div className="space-y-10">
-      <Summary
-        plan={plan}
-        state={state}
-        subjects={subjects}
-        hasPrevious={parseNumber(state.previous.cgpa) !== null}
-        onTarget={useSemesterTarget}
-      />
+      <section aria-label="Semester summary" className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-10">
+        <Goal
+          settings={state.settings}
+          resolved={resolved}
+          onAim={setAim}
+          onGrade={(grade) => patchSettings({ targetGrade: grade })}
+          onNumber={(value) => patchSettings({ goal: { kind: base.settings.goal?.kind ?? "gpa", value } })}
+        />
+        <Outcome
+          plan={plan}
+          previous={state.previous}
+          fromEstimate={fromEstimate}
+          onPrevious={setPrevious}
+        />
+      </section>
 
       <Section
-        title="Subjects"
+        title="Your subjects"
         action={
           <button
             type="button"
@@ -148,8 +181,8 @@ export function Planner({
       >
         <p className="mb-4 max-w-2xl text-body text-muted-foreground">
           {fromErp
-            ? `Filled in from your ERP. Type over anything to try a different score. Leave External empty to see what grade ${target} needs.`
-            : `Enter your CAE marks. Leave External empty to see what grade ${target} needs.`}
+            ? "CAE marks are filled in from your ERP. Change any of them to see what you need in the exam."
+            : "Type your CAE marks to see what you need in the exam."}
         </p>
 
         <div
@@ -159,16 +192,14 @@ export function Planner({
           )}
           aria-hidden
         >
+          <span title="Count in GPA">✓</span>
           <span>Subject</span>
           <span>CAE 1</span>
           <span>CAE 2</span>
           <span>Assign. + att.</span>
           <span>Internal</span>
-          <span>External</span>
-          <span>Total</span>
+          <span>Exam marks needed</span>
           <span>Grade</span>
-          <span>Credits</span>
-          <span>Count</span>
         </div>
 
         <ul className="divide-y divide-border">
@@ -179,36 +210,11 @@ export function Planner({
               input={base.subjects[p.code] ?? {}}
               erp={subjects.find((s) => s.code === p.code)}
               settings={state.settings}
+              aimingForNumber={aimingForNumber}
               onChange={(patch) => patchSubject(p.code, patch)}
             />
           ))}
         </ul>
-      </Section>
-
-      <Section title="Before this semester">
-        <p className="mb-4 max-w-2xl text-body text-muted-foreground">
-          {estimatedPrevious
-            ? "Estimated from your ERP marks. Type the figures from your grade sheet to be exact."
-            : "From your last grade sheet, to project your CGPA."}
-        </p>
-        <div className="grid max-w-md grid-cols-2 gap-4">
-          <LabeledField
-            id="prev-cgpa"
-            label="CGPA so far"
-            value={state.previous.cgpa}
-            placeholder="8.25"
-            hint={fromEstimate.cgpa ? "Estimated" : undefined}
-            onChange={(v) => save({ ...base, previous: { ...base.previous, cgpa: v } })}
-          />
-          <LabeledField
-            id="prev-credits"
-            label="Credits completed"
-            value={state.previous.credits}
-            placeholder="60"
-            hint={fromEstimate.credits ? "Estimated" : undefined}
-            onChange={(v) => save({ ...base, previous: { ...base.previous, credits: v } })}
-          />
-        </div>
       </Section>
 
       <Settings
@@ -220,211 +226,246 @@ export function Planner({
   );
 }
 
-function Summary({
-  plan,
-  state,
-  subjects,
-  hasPrevious,
-  onTarget,
+/** What the student aims for: a grade, or a semester GPA / CGPA worked back to one. */
+function Goal({
+  settings,
+  resolved,
+  onAim,
+  onGrade,
+  onNumber,
 }: {
-  plan: PlannerResult;
-  state: PlannerState;
-  subjects: PlannerSubject[];
-  hasPrevious: boolean;
-  onTarget: (grade: string) => void;
+  settings: PlannerSettings;
+  resolved: ResolvedGoal;
+  onAim: (kind: AimKind) => void;
+  onGrade: (grade: string) => void;
+  onNumber: (value: string) => void;
 }) {
-  const { settings } = state;
-  const target = settings.targetGrade;
-  const planned = plan.subjects.filter((s) => s.included && s.planned);
-  const sharedTarget = planned.every((s) => s.target === planned[0]?.target);
-  const guidance = summaryGuidance(plan, settings.externalMax);
-  return (
-    <section aria-label="Semester summary" className="space-y-8 border-b border-border pb-8">
-      <div className="max-w-xl">
-        <label htmlFor="target-grade" className={cn(labelClass, "block")}>
-          Target grade for this semester
-        </label>
-        <select
-          id="target-grade"
-          value={target}
-          onChange={(e) => onTarget(e.target.value)}
-          className={cn(fieldClass, "mt-1.5 sm:max-w-72")}
-        >
-          {targetBands(settings.scale).map((b) => (
-            <option key={b.grade} value={b.grade}>
-              {gradeOption(b)}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1.5 text-body text-muted-foreground">
-          Each subject below shows the external marks this needs.
-        </p>
-        {guidance.length > 0 ? (
-          <div className="mt-3 space-y-1 text-small leading-relaxed text-foreground">
-            {guidance.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="grid gap-6 sm:grid-cols-3">
-        <div>
-          <p className="text-sm text-muted-foreground">Semester GPA</p>
-          <p className="mt-1 text-5xl font-semibold leading-none tracking-tight tabular-nums">
-            {plan.credits > 0 ? plan.gpa.toFixed(2) : "–"}
-          </p>
-          <p className="mt-2 text-body text-muted-foreground">
-            {planned.length > 0
-              ? `Assuming ${sharedTarget ? `grade ${planned[0]!.target}` : "each target"} in ${planned.length} ${planned.length === 1 ? "subject" : "subjects"}.`
-              : "From the marks you entered."}
-          </p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Projected CGPA</p>
-          <p className="mt-1 text-5xl font-semibold leading-none tracking-tight tabular-nums">
-            {plan.cgpa !== null ? plan.cgpa.toFixed(2) : "–"}
-          </p>
-          <p className="mt-2 text-body text-muted-foreground">
-            {hasPrevious ? "With this semester added." : "Add your CGPA so far, below."}
-          </p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Credits counted</p>
-          <p className="mt-1 text-5xl font-semibold leading-none tracking-tight tabular-nums">{plan.credits}</p>
-          <p className="mt-2 text-body text-muted-foreground">Untick a subject to leave it out.</p>
-        </div>
-      </div>
-
-      <GoalFinder plan={plan} state={state} subjects={subjects} onTarget={onTarget} />
-    </section>
-  );
-}
-
-/** Work backwards from a semester GPA or a CGPA to the grade to aim for. */
-function GoalFinder({
-  plan,
-  state,
-  subjects,
-  onTarget,
-}: {
-  plan: PlannerResult;
-  state: PlannerState;
-  subjects: PlannerSubject[];
-  onTarget: (grade: string) => void;
-}) {
-  const [mode, setMode] = React.useState<"gpa" | "cgpa">("gpa");
-  const [text, setText] = React.useState("");
-  const typed = parseNumber(text);
-  const max = Math.max(...state.settings.scale.map((b) => b.points));
-
-  const prevCgpa = parseNumber(state.previous.cgpa);
-  const prevCredits = parseNumber(state.previous.credits);
-
-  let needGpa: number | null = null;
-  let note: string | null = null;
-  if (typed === null) {
-    note = null;
-  } else if (plan.credits <= 0) {
-    note = "Count at least one subject to work this out.";
-  } else if (mode === "gpa") {
-    needGpa = typed;
-  } else if (prevCgpa === null || prevCredits === null || prevCredits <= 0) {
-    note = "Fill in CGPA so far and Credits completed first.";
-  } else {
-    needGpa = gpaForTargetCgpa(typed, prevCgpa, prevCredits, plan.credits);
-    if (needGpa !== null) {
-      note =
-        needGpa <= 0
-          ? `Your CGPA stays at ${typed} or more whatever you score this semester.`
-          : `You need a semester GPA of ${needGpa.toFixed(2)} to get there.`;
-    }
-  }
-
-  const outOfScale = needGpa !== null && needGpa > max;
-  const goal =
-    needGpa !== null && needGpa > 0 && !outOfScale ? findGradeForGpa(state, subjects, needGpa) : null;
-  const lines = goal?.plan ? summaryGuidance(goal.plan, state.settings.externalMax) : [];
+  const aim: AimKind = settings.goal?.kind ?? "grade";
+  const status = goalStatus(resolved.plan);
 
   return (
-    <section aria-labelledby="goal-heading" className="border-t border-border pt-6">
-      <h3 id="goal-heading" className="text-heading font-semibold text-foreground">
-        Or aim for a number
-      </h3>
-      <div className="mt-3 max-w-xl space-y-4">
-        <p className="text-body text-muted-foreground">
-          Type the result you want; the planner finds the lowest grade that gets you there.
-        </p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="goal-mode" className={labelClass}>
-              Aim for
+    <div className="rounded-xl bg-accent/45 p-4 sm:p-5">
+      <h2 className="text-heading font-semibold text-foreground">What are you aiming for?</h2>
+      <div role="radiogroup" aria-label="Aim for" className="mt-3 flex flex-wrap gap-1.5">
+        {AIMS.map((a) => (
+          <button
+            key={a.kind}
+            type="button"
+            role="radio"
+            aria-checked={aim === a.kind}
+            onClick={() => onAim(a.kind)}
+            className={cn(
+              "focusable min-h-11 rounded-full px-4 text-small font-semibold transition-colors lg:min-h-9",
+              aim === a.kind
+                ? "bg-primary text-primary-foreground"
+                : "bg-surface text-foreground ring-1 ring-border hover:bg-muted",
+            )}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 max-w-sm">
+        {aim === "grade" ? (
+          <>
+            <label htmlFor="target-grade" className={cn(labelClass, "block")}>
+              Target grade
             </label>
             <select
-              id="goal-mode"
-              value={mode}
-              onChange={(e) => setMode(e.target.value === "cgpa" ? "cgpa" : "gpa")}
+              id="target-grade"
+              value={settings.targetGrade}
+              onChange={(e) => onGrade(e.target.value)}
               className={cn(fieldClass, "mt-1.5")}
             >
-              <option value="gpa">Semester GPA</option>
-              <option value="cgpa">CGPA</option>
+              {targetBands(settings.scale).map((b) => (
+                <option key={b.grade} value={b.grade}>
+                  {gradeOption(b)}
+                </option>
+              ))}
             </select>
-          </div>
-          <div>
-            <label htmlFor="goal-value" className={labelClass}>
-              {mode === "gpa" ? "Target semester GPA" : "Target CGPA"}
+          </>
+        ) : (
+          <>
+            <label htmlFor="goal-value" className={cn(labelClass, "block")}>
+              {aim === "gpa" ? "Target semester GPA" : "Target CGPA"}
             </label>
             <input
               id="goal-value"
               type="text"
               inputMode="decimal"
               autoComplete="off"
-              value={text}
-              placeholder={mode === "gpa" ? "8.5" : "8.25"}
-              onChange={(e) => setText(sanitizeNumber(e.target.value))}
+              value={settings.goal?.value ?? ""}
+              placeholder="8.5"
+              onChange={(e) => onNumber(sanitizeNumber(e.target.value))}
               className={cn(fieldClass, "mt-1.5 tabular-nums")}
             />
-          </div>
-        </div>
-
-        {note ? <p className="text-body text-foreground">{note}</p> : null}
-        {outOfScale ? (
-          <p className="text-body font-semibold text-danger">
-            The scale tops out at {max}, so {needGpa!.toFixed(2)} is out of reach.
-          </p>
-        ) : goal ? (
-          goal.grade ? (
-            <div className="space-y-2 text-body leading-relaxed">
-              <p className="font-semibold text-foreground">
-                Aim for {goal.grade} in every subject. That gives a semester GPA of{" "}
-                {goal.plan!.gpa.toFixed(2)}.
-              </p>
-              {lines.map((line) => (
-                <p key={line} className="text-muted-foreground">
-                  {line}
-                </p>
-              ))}
-              {state.settings.targetGrade === goal.grade ? (
-                <p className="text-muted-foreground">That is already your semester target.</p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onTarget(goal.grade!)}
-                  className="focusable min-h-11 rounded-md text-small font-semibold text-primary underline-offset-4 hover:underline lg:min-h-0"
-                >
-                  Use {goal.grade} as the semester target
-                </button>
-              )}
-            </div>
-          ) : (
-            <p className="text-body font-semibold text-danger">
-              {needGpa!.toFixed(2)} is out of reach this semester. The most you can reach is{" "}
-              {goal.bestGpa.toFixed(2)}.
-            </p>
-          )
-        ) : null}
+          </>
+        )}
       </div>
-    </section>
+
+      <div aria-live="polite" className="mt-4 space-y-2 text-body leading-relaxed">
+        {aim !== "grade" ? <NumberAnswer resolved={resolved} /> : null}
+        {status && !(resolved.number && !resolved.number.grade) ? <StatusLines status={status} /> : null}
+      </div>
+    </div>
+  );
+}
+
+/** The grade a typed semester GPA or CGPA works out to, or why it doesn't. */
+function NumberAnswer({ resolved }: { resolved: ResolvedGoal }) {
+  const n = resolved.number;
+  if (!n) return <p className="text-muted-foreground">Type a number to see the grade it takes.</p>;
+  if (n.issue === "no-credits") return <p className="text-foreground">Count at least one subject to work this out.</p>;
+  if (n.issue === "needs-previous") {
+    return <p className="text-foreground">Add your CGPA so far and credits completed, under Projected CGPA, first.</p>;
+  }
+  const need = n.needGpa!;
+  if (n.issue === "out-of-reach") {
+    return (
+      <p className="font-semibold text-danger">
+        {n.kind === "cgpa"
+          ? `That takes a semester GPA of ${need.toFixed(2)}, but the most your marks allow is ${n.bestGpa!.toFixed(2)}.`
+          : `${n.target} is out of reach this semester. The most your marks allow is ${n.bestGpa!.toFixed(2)}.`}{" "}
+        <span className="font-normal text-muted-foreground">Below is the best you can do.</span>
+      </p>
+    );
+  }
+  if (need <= 0) {
+    return <p className="text-foreground">Your CGPA stays at {n.target} or more as long as you pass every subject.</p>;
+  }
+  return (
+    <p className="text-foreground">
+      {n.kind === "cgpa" ? <>That takes a semester GPA of {need.toFixed(2)}. </> : null}
+      Get <strong className="font-semibold">{n.grade}</strong> in every subject for a semester GPA of{" "}
+      {resolved.plan.gpa.toFixed(2)}.
+    </p>
+  );
+}
+
+/** Two plain lines: what the exams need on average, and which targets can't be reached. */
+function StatusLines({ status }: { status: GoalStatus }) {
+  const which = status.sharedTarget ?? "your target";
+  if (status.allSecured) {
+    return (
+      <p className="flex gap-2 text-foreground">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+        <span>Your internal marks already secure {which}. You still need 30% of each exam to pass.</span>
+      </p>
+    );
+  }
+  const out = status.outOfReach;
+  const bests = new Set(out.map((p) => p.bestGrade));
+  // Lead with marks on the paper (theory is written for 100 and converted to 50).
+  const groups = status.papers;
+  const others = groups.filter((g) => !g.converted).length;
+  const where = (g: PaperGroup) =>
+    g.converted ? "on theory papers" : others === 1 ? "on the other exams" : `on ${g.paperMax}-mark exams`;
+  return (
+    <>
+      {status.needing > 0 ? (
+        <p className="flex gap-2 text-foreground">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+          <span>
+            {out.length > 0 ? `In ${plural(status.needing, "subject")}, you` : "You"} need about{" "}
+            {groups.length === 1 ? (
+              <>
+                <strong className="font-semibold tabular-nums">
+                  {groups[0]!.averagePaperNeeded}/{groups[0]!.paperMax}
+                </strong>{" "}
+                in each exam
+                {groups[0]!.converted ? ` (${groups[0]!.averageNeeded}/${groups[0]!.externalMax} after conversion)` : ""}
+              </>
+            ) : (
+              groups.map((g, i) => (
+                <React.Fragment key={`${g.paperMax}/${g.externalMax}`}>
+                  {i > 0 ? (i === groups.length - 1 ? " and " : ", ") : null}
+                  <strong className="font-semibold tabular-nums">
+                    {g.averagePaperNeeded}/{g.paperMax}
+                  </strong>{" "}
+                  {where(g)}
+                </React.Fragment>
+              ))
+            )}{" "}
+            for {which}.
+          </span>
+        </p>
+      ) : null}
+      {out.length > 0 ? (
+        <p className="flex gap-2 text-foreground">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
+          <span>
+            {plural(out.length, "subject")} can&apos;t reach {status.sharedTarget ?? "their target"} even with full exam
+            marks{bests.size === 1 ? `; the best there is ${[...bests][0]}` : ""}.
+          </span>
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/** The two numbers the plan leads to, with the standing the CGPA builds on right beside it. */
+function Outcome({
+  plan,
+  previous,
+  fromEstimate,
+  onPrevious,
+}: {
+  plan: PlannerResult;
+  previous: PlannerState["previous"];
+  fromEstimate: { cgpa: boolean; credits: boolean };
+  onPrevious: (patch: Partial<PlannerState["previous"]>) => void;
+}) {
+  const counted = plan.subjects.filter((s) => s.included && s.credits > 0).length;
+  const hasPrevious = parseNumber(previous.cgpa) !== null && parseNumber(previous.credits) !== null;
+  return (
+    <div className="grid grid-cols-2 content-start gap-x-6 gap-y-6">
+      <div>
+        <p className="text-sm text-muted-foreground">Semester GPA</p>
+        <p className="mt-1 text-5xl font-semibold leading-none tracking-tight tabular-nums">
+          {plan.credits > 0 ? plan.gpa.toFixed(2) : "–"}
+        </p>
+        <p className="mt-2 text-body text-muted-foreground">
+          {plan.credits > 0
+            ? `${plural(counted, "subject")}, ${plural(plan.credits, "credit")}.`
+            : "Tick a subject to count it."}
+        </p>
+      </div>
+      <div>
+        <p className="text-sm text-muted-foreground">Projected CGPA</p>
+        <p className="mt-1 text-5xl font-semibold leading-none tracking-tight tabular-nums">
+          {plan.cgpa !== null ? plan.cgpa.toFixed(2) : "–"}
+        </p>
+        <p className="mt-2 text-body text-muted-foreground">
+          {hasPrevious ? "With this semester added." : "Add your CGPA so far below."}
+        </p>
+      </div>
+
+      <div className="col-span-2 border-t border-border pt-4">
+        <p className="text-small font-semibold text-foreground">Before this semester</p>
+        <div className="mt-2 flex flex-wrap items-end gap-3">
+          <SmallField
+            id="prev-cgpa"
+            label="CGPA so far"
+            value={previous.cgpa}
+            placeholder="8.25"
+            onChange={(v) => onPrevious({ cgpa: v })}
+          />
+          <SmallField
+            id="prev-credits"
+            label="Credits completed"
+            value={previous.credits}
+            placeholder="60"
+            onChange={(v) => onPrevious({ credits: v })}
+          />
+        </div>
+        <p className="mt-2 text-small text-muted-foreground">
+          {fromEstimate.cgpa || fromEstimate.credits
+            ? "Estimated from your ERP marks. Type the figures on your grade sheet to be exact."
+            : "From your last grade sheet."}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -433,185 +474,294 @@ function SubjectRow({
   input,
   erp,
   settings,
+  aimingForNumber,
   onChange,
 }: {
   plan: SubjectPlan;
   input: SubjectInput;
   erp: PlannerSubject | undefined;
   settings: PlannerSettings;
+  aimingForNumber: boolean;
   onChange: (patch: Partial<SubjectInput>) => void;
 }) {
   const id = `s-${plan.code}`;
-  const target = plan.target;
+  const [open, setOpen] = React.useState(false);
   // ERP scores and defaults show as real values; clearing a field falls back to them.
   const shown = (typed: string | undefined, fallback: string | number | null | undefined) =>
     typed ?? (fallback == null ? undefined : String(fallback));
-  const needText = plan.externalMax <= 0
-    ? "No end-semester exam for this course"
-    : !plan.reachable
-    ? `${target} is out of reach (best is ${plan.bestGrade})`
-    : plan.secured && plan.needed === plan.externalMin
-      ? `Need ${plan.needed} of ${plan.externalMax} (the pass minimum) for ${target}`
-      : `Need ${plan.needed} of ${plan.externalMax} for ${target}`;
   const creditsTyped = (input.credits ?? "").trim() !== "";
-  const ownTarget = settings.scale.some((b) => b.grade === input.target) ? input.target! : "";
+  const ownTarget =
+    !aimingForNumber && settings.scale.some((b) => b.grade === input.target) ? input.target! : "";
 
   return (
     <li className={cn("py-5 lg:py-3", !plan.included && "opacity-55")}>
-      <div className={cn("grid grid-cols-2 gap-x-3 gap-y-3 lg:items-start lg:gap-y-0", COLUMNS)}>
-        <div className="col-span-2 min-w-0 lg:col-span-1">
-          <p className="text-base font-medium leading-snug text-foreground lg:text-sm">{plan.title}</p>
-          <p className="text-xs text-muted-foreground">
-            {plan.code}
-            {plan.maxTotal !== 100 ? `, out of ${plan.maxTotal}` : ""}
-            {plan.audit ? ", audit course with no credits" : ""}
-          </p>
-          <div className="mt-1.5 flex items-center gap-2">
-            <span aria-hidden className="text-xs text-muted-foreground">
-              Aim for
-            </span>
-            <select
-              aria-label={`${plan.title} target grade`}
-              value={ownTarget}
-              onChange={(e) => onChange({ target: e.target.value || undefined })}
-              className="focusable h-11 max-w-44 rounded-md border border-input bg-surface px-2 text-small text-foreground lg:h-9"
-            >
-              <option value="">Semester target ({settings.targetGrade})</option>
-              {targetBands(settings.scale).map((b) => (
-                <option key={b.grade} value={b.grade}>
-                  {b.grade} ({b.min}%+)
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <Cell label="CAE 1" htmlFor={`${id}-cae1`}>
-          <NumberInput
-            id={`${id}-cae1`}
-            label={`${plan.title} CAE 1`}
-            value={shown(input.cae1, erp?.cae1)}
-            placeholder="0"
-            onChange={(v) => onChange({ cae1: v })}
-          />
-        </Cell>
-        <Cell label="CAE 2" htmlFor={`${id}-cae2`}>
-          <NumberInput
-            id={`${id}-cae2`}
-            label={`${plan.title} CAE 2`}
-            value={shown(input.cae2, erp?.cae2)}
-            placeholder="0"
-            onChange={(v) => onChange({ cae2: v })}
-          />
-        </Cell>
-        <Cell label="Assignment + attendance" htmlFor={`${id}-other`}>
-          <NumberInput
-            id={`${id}-other`}
-            label={`${plan.title} assignment and attendance marks`}
-            value={shown(input.other, settings.defaultOther)}
-            placeholder="0"
-            onChange={(v) => onChange({ other: v })}
-          />
-        </Cell>
-
-        <Cell label={`Internal (of ${plan.internalMax})`} wide>
-          <Figure value={plan.internal} strong />
-        </Cell>
-
-        <Cell label={`External (of ${plan.externalMax})`} htmlFor={`${id}-ext`}>
-          <NumberInput
-            id={`${id}-ext`}
-            label={`${plan.title} external marks`}
-            value={input.external}
-            placeholder={plan.planned ? String(plan.reachable ? plan.needed : plan.externalMax) : ""}
-            onChange={(v) => onChange({ external: v })}
-          />
-          <p className={cn("mt-1 text-body leading-snug lg:text-xs", plan.reachable ? "text-muted-foreground" : "text-danger")}>
-            {needText}
-          </p>
-        </Cell>
-
-        <Cell label="Total" wide>
-          <Figure value={plan.total} />
-          {plan.planned ? <p className="mt-1 text-xs text-muted-foreground">planned</p> : null}
-        </Cell>
-        <Cell label="Grade" wide>
-          <p className={cn("text-base font-semibold tabular-nums lg:pt-2.5", plan.points === 0 && "text-danger")}>
-            {plan.grade}
-          </p>
-        </Cell>
-
-        {/* Phone-only: the three derived figures on one line instead of three cells. */}
-        <p className="col-span-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-body text-muted-foreground lg:hidden">
-          <span>
-            Internal{" "}
-            <span className="font-semibold tabular-nums text-foreground">
-              {figure(plan.internal)}
-            </span>
-            <span className="text-muted-foreground"> / {plan.internalMax}</span>
-          </span>
-          <span>
-            Total{" "}
-            <span className="font-semibold tabular-nums text-foreground">{figure(plan.total)}</span>
-            {plan.planned ? " (planned)" : ""}
-          </span>
-          <span>
-            Grade{" "}
-            <span className={cn("font-semibold text-foreground", plan.points === 0 && "text-danger")}>
-              {plan.grade}
-            </span>
-          </span>
-        </p>
-
-        <Cell label="Credits" htmlFor={`${id}-credits`}>
-          <NumberInput
-            id={`${id}-credits`}
-            label={`${plan.title} credits`}
-            value={shown(input.credits, erp?.course?.credits ?? DEFAULT_CREDITS)}
-            placeholder="0"
-            onChange={(v) => onChange({ credits: v })}
-          />
-          {plan.creditSource && !creditsTyped ? (
-            <p className="mt-1 text-xs text-muted-foreground">{SOURCE_LABEL[plan.creditSource]}</p>
-          ) : null}
-        </Cell>
-        <div className="flex items-center gap-2 lg:items-start lg:pt-2.5">
+      <div className={cn("grid grid-cols-[1.5rem_minmax(0,1fr)_auto] gap-x-3 gap-y-3 lg:items-start lg:gap-y-0", COLUMNS)}>
+        <div className="col-start-1 row-start-1 pt-0.5 lg:col-auto lg:row-auto lg:pt-2.5">
           <input
             id={`${id}-include`}
             type="checkbox"
             checked={plan.included}
             onChange={(e) => onChange({ include: e.target.checked })}
+            aria-label={`Count ${plan.title} in GPA`}
             className="h-5 w-5 accent-[hsl(var(--primary))]"
           />
-          <label htmlFor={`${id}-include`} className="text-sm text-muted-foreground lg:sr-only">
-            Count in GPA
-          </label>
         </div>
+
+        <div className="col-start-2 row-start-1 min-w-0 lg:col-auto lg:row-auto lg:pt-1.5">
+          <p className="text-base font-medium leading-snug text-foreground lg:text-sm">{plan.title}</p>
+          <p className="text-xs text-muted-foreground">
+            {plan.code}
+            {plan.audit ? ", audit course" : `, ${plural(plan.credits, "credit")}`}
+            {plan.maxTotal !== 100 ? `, out of ${plan.maxTotal}` : ""}
+            {ownTarget ? `, aiming for ${ownTarget}` : ""}
+            {plan.externalEntered !== null
+              ? `, expecting ${figure(onPaper(plan.externalEntered, plan))}/${plan.paperMax}`
+              : ""}
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={`${id}-more`}
+              onClick={() => setOpen((o) => !o)}
+              className="focusable ml-1.5 inline-flex min-h-6 items-center gap-0.5 rounded-sm align-middle font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Change<span className="sr-only"> credits, target and expected marks for {plan.title}</span>
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} aria-hidden />
+            </button>
+          </p>
+        </div>
+
+        {/* Internal marks: three inputs and what they add up to. */}
+        <div className="col-span-2 col-start-2 row-start-2 grid grid-cols-4 gap-2 lg:contents">
+          <Cell label="CAE 1" htmlFor={`${id}-cae1`}>
+            <NumberInput
+              id={`${id}-cae1`}
+              label={`${plan.title} CAE 1`}
+              value={shown(input.cae1, erp?.cae1)}
+              placeholder="0"
+              onChange={(v) => onChange({ cae1: v })}
+            />
+          </Cell>
+          <Cell label="CAE 2" htmlFor={`${id}-cae2`}>
+            <NumberInput
+              id={`${id}-cae2`}
+              label={`${plan.title} CAE 2`}
+              value={shown(input.cae2, erp?.cae2)}
+              placeholder="0"
+              onChange={(v) => onChange({ cae2: v })}
+            />
+          </Cell>
+          <Cell label="Assign. + att." htmlFor={`${id}-other`}>
+            <NumberInput
+              id={`${id}-other`}
+              label={`${plan.title} assignment and attendance marks`}
+              value={shown(input.other, settings.defaultOther)}
+              placeholder="0"
+              onChange={(v) => onChange({ other: v })}
+            />
+          </Cell>
+          <Cell label="Internal">
+            <p className="pt-2.5 text-base tabular-nums lg:text-sm">
+              <span className="font-semibold text-foreground">{figure(plan.internal)}</span>
+              <span className="text-muted-foreground">/{plan.internalMax}</span>
+            </p>
+          </Cell>
+        </div>
+
+        {/* The semester exam: what the target needs. */}
+        <div className="col-span-2 col-start-2 row-start-3 lg:contents">
+          <Cell label="Exam marks needed">
+            <Needed plan={plan} />
+          </Cell>
+        </div>
+
+        <div className="col-start-3 row-start-1 text-right lg:col-auto lg:row-auto lg:pt-1.5 lg:text-left">
+          <p className={cn("text-xl font-semibold leading-tight lg:text-base", plan.points === 0 && "text-danger")}>
+            <span className="sr-only">Grade </span>
+            {plan.grade}
+          </p>
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {figure(plan.total)} of {plan.maxTotal}
+          </p>
+        </div>
+
+        {open ? (
+          <div
+            id={`${id}-more`}
+            className="col-span-2 col-start-2 row-start-4 flex flex-wrap items-start gap-x-6 gap-y-3 rounded-lg bg-muted/50 p-3 lg:col-span-7 lg:col-start-2 lg:row-auto lg:mt-3"
+          >
+            <div className="w-24">
+              <label htmlFor={`${id}-credits`} className="mb-1 block text-xs text-muted-foreground">
+                Credits
+              </label>
+              <NumberInput
+                id={`${id}-credits`}
+                label={`${plan.title} credits`}
+                value={shown(input.credits, erp?.course?.credits ?? DEFAULT_CREDITS)}
+                placeholder="0"
+                onChange={(v) => onChange({ credits: v })}
+              />
+              {plan.creditSource && !creditsTyped ? (
+                <p className="mt-1 text-xs text-muted-foreground">{SOURCE_LABEL[plan.creditSource]}</p>
+              ) : null}
+            </div>
+            <div className="min-w-0 max-w-64 flex-1">
+              <label htmlFor={`${id}-target`} className="mb-1 block text-xs text-muted-foreground">
+                Aim for in this subject
+              </label>
+              <select
+                id={`${id}-target`}
+                aria-label={`${plan.title} target grade`}
+                value={ownTarget}
+                disabled={aimingForNumber}
+                onChange={(e) => onChange({ target: e.target.value || undefined })}
+                className={cn(fieldClass, "px-2.5 disabled:opacity-60")}
+              >
+                <option value="">Same as above ({aimingForNumber ? plan.target : settings.targetGrade})</option>
+                {targetBands(settings.scale).map((b) => (
+                  <option key={b.grade} value={b.grade}>
+                    {gradeOption(b)}
+                  </option>
+                ))}
+              </select>
+              {aimingForNumber ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  While you aim for a GPA, every subject gets the same grade.
+                </p>
+              ) : null}
+            </div>
+            {plan.externalMax > 0 ? (
+              <div className="w-44">
+                <label htmlFor={`${id}-ext`} className="mb-1 block text-xs text-muted-foreground">
+                  Exam marks you expect (of {plan.paperMax})
+                </label>
+                <PaperInput
+                  id={`${id}-ext`}
+                  label={`${plan.title} expected exam marks`}
+                  stored={input.external}
+                  plan={plan}
+                  onChange={(v) => onChange({ external: v })}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {plan.externalEntered === null
+                    ? "Leave empty to see what you need."
+                    : plan.paperMax !== plan.externalMax
+                      ? `${figure(plan.externalEntered)}/${plan.externalMax} after conversion.`
+                      : "Clear it to see what you need."}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </li>
+  );
+}
+
+/** The answer for one subject: exam marks the target needs, or that it can't be reached. */
+function Needed({ plan }: { plan: SubjectPlan }) {
+  if (plan.externalMax <= 0) {
+    return <p className="pt-2.5 text-small text-muted-foreground">No semester exam</p>;
+  }
+  if (!plan.reachable) {
+    return (
+      <p className="pt-2 text-small leading-snug">
+        <span className="font-semibold text-danger">{plan.target} is out of reach</span>{" "}
+        <span className="text-muted-foreground">(best is {plan.bestGrade})</span>
+      </p>
+    );
+  }
+  const passOnly = plan.secured && plan.needed === plan.externalMin;
+  // A theory paper is written for 100 and converted to 50: lead with the mark on the paper.
+  const converted = plan.paperMax !== plan.externalMax;
+  return (
+    <div className="pt-1.5 leading-snug">
+      <p>
+        <span className="sr-only">Need </span>
+        <span className="text-xl font-semibold tabular-nums text-foreground lg:text-lg">{plan.paperNeeded}</span>
+        <span className="text-small text-muted-foreground">/{plan.paperMax} in the exam</span>
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {converted ? `${plan.needed}/${plan.externalMax} after conversion, ` : ""}for {plan.target}
+        {passOnly ? ", just the pass mark" : ""}
+      </p>
+    </div>
+  );
+}
+
+/** Exam marks as the student would see them on the paper (out of 100 for a converted theory exam). */
+const onPaper = (marks: number, plan: SubjectPlan) =>
+  plan.externalMax > 0 ? (marks * plan.paperMax) / plan.externalMax : marks;
+
+/**
+ * Exam marks typed on the paper's scale, saved on the converted scale (`SubjectInput.external`)
+ * so earlier saves keep their meaning. Holds its own text so "7." survives while typing.
+ */
+function PaperInput({
+  id,
+  label,
+  stored,
+  plan,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  stored: string | undefined;
+  plan: SubjectPlan;
+  onChange: (v: string) => void;
+}) {
+  const shown = (v: string | undefined) => {
+    const n = parseNumber(v);
+    return n === null ? "" : figure(onPaper(n, plan));
+  };
+  const toStored = (t: string) => {
+    const n = parseNumber(t);
+    return n === null ? null : plan.paperMax > 0 ? (n * plan.externalMax) / plan.paperMax : n;
+  };
+  const [text, setText] = React.useState(() => shown(stored));
+  // Follow changes made elsewhere (Reset, another tab) without fighting the typing. Compared as
+  // displayed, so the check settles after one update ("7." and "7" both show as 7).
+  const typed = parseNumber(text);
+  if ((typed === null ? "" : figure(typed)) !== shown(stored)) setText(shown(stored));
+
+  return (
+    <input
+      id={id}
+      aria-label={label}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      value={text}
+      placeholder={`of ${plan.paperMax}`}
+      onChange={(e) => {
+        const v = sanitizeNumber(e.target.value);
+        setText(v);
+        const n = toStored(v);
+        onChange(n === null ? "" : String(n));
+      }}
+      className={cn(fieldClass, "px-2.5 tabular-nums")}
+    />
   );
 }
 
 function Cell({
   label,
   htmlFor,
-  wide,
   children,
 }: {
   label: string;
   htmlFor?: string;
-  /** Only shown in the wide (lg) grid; the phone layout states it another way. */
-  wide?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("min-w-0", wide && "hidden lg:block")}>
+    <div className="min-w-0">
       {htmlFor ? (
-        <label htmlFor={htmlFor} className="mb-1 block text-xs text-muted-foreground lg:sr-only">
+        <label htmlFor={htmlFor} className="mb-1 block truncate text-xs text-muted-foreground lg:sr-only">
           {label}
         </label>
       ) : (
-        <p className="mb-1 text-xs text-muted-foreground lg:sr-only">{label}</p>
+        <p aria-hidden className="mb-1 truncate text-xs text-muted-foreground lg:hidden">
+          {label}
+        </p>
       )}
       {children}
     </div>
@@ -619,14 +769,6 @@ function Cell({
 }
 
 const figure = (value: number) => (Number.isInteger(value) ? String(value) : value.toFixed(2));
-
-function Figure({ value, strong }: { value: number; strong?: boolean }) {
-  return (
-    <p className={cn("text-base tabular-nums lg:pt-2.5 lg:text-sm", strong ? "font-semibold" : "font-medium")}>
-      {figure(value)}
-    </p>
-  );
-}
 
 function NumberInput({
   id,
@@ -656,24 +798,22 @@ function NumberInput({
   );
 }
 
-function LabeledField({
+function SmallField({
   id,
   label,
   value,
   placeholder,
-  hint,
   onChange,
 }: {
   id: string;
   label: string;
   value: string;
   placeholder?: string;
-  hint?: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <div>
-      <label htmlFor={id} className={labelClass}>
+    <div className="w-32">
+      <label htmlFor={id} className="mb-1 block text-xs text-muted-foreground">
         {label}
       </label>
       <input
@@ -684,9 +824,8 @@ function LabeledField({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(sanitizeNumber(e.target.value))}
-        className={cn(fieldClass, "mt-1.5 tabular-nums")}
+        className={cn(fieldClass, "tabular-nums")}
       />
-      {hint ? <p className="mt-1 text-micro text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }
@@ -713,16 +852,17 @@ function Settings({
   return (
     <details className="group border-t border-border pt-4">
       <summary className="focusable flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold text-foreground marker:content-none lg:min-h-9">
-        Formula and grade bands
-        <span className="text-sm font-normal text-primary group-open:hidden">Edit</span>
-        <span className="hidden text-sm font-normal text-primary group-open:inline">Close</span>
+        How marks are worked out
+        <span className="text-sm font-normal text-primary group-open:hidden">Show</span>
+        <span className="hidden text-sm font-normal text-primary group-open:inline">Hide</span>
       </summary>
 
       <div className="mt-4 space-y-8">
         <p className="max-w-2xl text-body leading-relaxed text-muted-foreground">
           Internal = (CAE 1 + CAE 2) × weight + assignment and attendance, capped at the
-          subject&apos;s internal maximum. Total = internal + external. Maxima and credits come
-          from the official curriculum. Editing the bands here never changes your Results page.
+          subject&apos;s internal maximum. Total = internal + exam. You also need 30% of the exam to
+          pass. Maxima and credits come from the official curriculum. Editing the bands here never
+          changes your Results page.
         </p>
 
         <div className="grid max-w-xl grid-cols-2 gap-4">
@@ -834,4 +974,3 @@ function BandInput({
     />
   );
 }
-
