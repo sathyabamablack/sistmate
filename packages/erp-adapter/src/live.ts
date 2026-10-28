@@ -63,7 +63,7 @@ const USER_AGENT =
 const API_PATH = "erp/api/v1.0/";
 
 /** Login service that returns the ERP JWT for a register number + password. */
-export const DEFAULT_AUTH_BASE = "https://erp-backend-m6pu.onrender.com";
+export const DEFAULT_AUTH_BASE = "https://erp.sathyabama.ac.in/erp/api/v1.0/MasterStudent/login_stu_t";
 
 const ENDPOINTS = {
   view: "MasterStudent/view",
