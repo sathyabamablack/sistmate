@@ -13,11 +13,15 @@ import { cn } from "@/lib/utils";
  */
 export function RailLinks() {
   const pathname = usePathname();
+  // A group with nothing in the rail is left out, so no two rules end up stacked.
+  const groups = NAV_GROUPS.map((group) => ({
+    group,
+    items: NAV_ITEMS.filter((i) => i.group === group && !i.skipInRail),
+  })).filter((g) => g.items.length > 0);
 
   return (
     <div className="flex min-h-[min(100%,46rem)] flex-col gap-1.5 [@media(min-height:760px)]:gap-3">
-      {NAV_GROUPS.map((group, gi) => {
-        const items = NAV_ITEMS.filter((i) => i.group === group && !i.skipInRail);
+      {groups.map(({ group, items }, gi) => {
         return (
           <ul
             key={group}
@@ -70,11 +74,16 @@ export function SheetLinks({ onNavigate }: { onNavigate: () => void }) {
 
   return (
     <div className="space-y-5">
-      {NAV_GROUPS.map((group) => (
+      {NAV_GROUPS.map((group) => ({
+        group,
+        items: NAV_ITEMS.filter((i) => i.group === group && !i.skipInSheet),
+      }))
+        .filter((g) => g.items.length > 0)
+        .map(({ group, items }) => (
         <div key={group}>
           <p className="mb-1 px-2 text-small font-medium text-muted-foreground">{group}</p>
           <ul className="grid grid-cols-1 gap-0.5 min-[480px]:grid-cols-2">
-            {NAV_ITEMS.filter((i) => i.group === group && !i.skipInSheet).map((item) => {
+            {items.map((item) => {
               const active = isActivePath(pathname, item.href);
               const Icon = item.icon;
               return (

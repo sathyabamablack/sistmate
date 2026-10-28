@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { test, expect, apiLogin, waitForHydration } from "./helpers";
 
 /**
@@ -34,11 +34,17 @@ async function photo(page: Page, colour: string): Promise<Buffer> {
   return Buffer.from(dataUrl.split(",")[1]!, "base64");
 }
 
-async function share(page: Page, opts: { code: string; title?: string; files: Parameters<Page["setInputFiles"]>[1] }) {
+type Kind = "Past paper" | "Notes" | "Question bank";
+const SUBMIT: Record<Kind, string> = { "Past paper": "Share paper", Notes: "Share notes", "Question bank": "Share question bank" };
+
+/** Shares a file from /papers: a model exam paper from last year unless `kind` says otherwise. */
+async function share(page: Page, opts: { code: string; title?: string; kind?: Kind; topic?: string; files: Parameters<Page["setInputFiles"]>[1] }) {
+  const kind = opts.kind ?? "Past paper";
   await page.goto("/papers");
   await waitForHydration(page);
-  await page.getByRole("main").getByRole("button", { name: "Share a paper" }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Share a question paper" });
+  await page.getByRole("main").getByRole("button", { name: "Share papers or notes" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Share papers or notes" });
+  await dialog.getByRole("radio", { name: kind }).check();
   const subject = dialog.getByLabel("Subject", { exact: true });
   const known = await subject.locator(`option[value="${opts.code}"]`).count();
   if (known) {
@@ -48,21 +54,31 @@ async function share(page: Page, opts: { code: string; title?: string; files: Pa
     await dialog.getByLabel("Subject code").fill(opts.code);
     await dialog.getByLabel("Subject name").fill(opts.title ?? "E2E Subject");
   }
-  await dialog.getByLabel("Kind").selectOption("model");
-  await dialog.getByLabel("Year").selectOption(String(new Date().getFullYear() - 1));
+  if (kind === "Past paper") {
+    await dialog.getByLabel("Exam").selectOption("model");
+    await dialog.getByLabel("Year").selectOption(String(new Date().getFullYear() - 1));
+  } else {
+    // Notes and question banks ask for a unit or topic instead of an exam and its date.
+    await expect(dialog.getByLabel("Year")).toHaveCount(0);
+    await dialog.getByLabel("Unit or topic").fill(opts.topic ?? "");
+  }
   await dialog.getByLabel("File").setInputFiles(opts.files);
-  await dialog.getByRole("button", { name: "Share paper" }).click();
+  await dialog.getByRole("button", { name: SUBMIT[kind] }).click();
   await expect(dialog.getByText("Thanks! It's in the queue.")).toBeVisible();
   await page.keyboard.press("Escape");
 }
 
-/** Signs in as the admin and approves every waiting paper for `code`; returns their file links. */
-async function approveAll(page: Page, code: string): Promise<string[]> {
+/**
+ * Signs in as the admin and approves every waiting paper for `code`; returns their file links.
+ * `check` looks at the queue's items for `code` first.
+ */
+async function approveAll(page: Page, code: string, check?: (items: Locator) => Promise<void>): Promise<string[]> {
   await apiLogin(page, ADMIN);
   await page.goto("/papers/review");
   await waitForHydration(page);
   const items = page.getByRole("main").locator("div[aria-labelledby^='review-']").filter({ hasText: code });
   await expect(items.first()).toBeVisible();
+  await check?.(items);
   // Pin each item by its id: after one is approved, "first()" would point at the next one.
   const ids = await items.evaluateAll((els) => els.map((el) => el.getAttribute("aria-labelledby")!));
   const hrefs: string[] = [];
@@ -86,7 +102,7 @@ test.describe("question papers", () => {
 
     // Not visible to students until approved.
     await page.goto(`/papers?q=${code}`);
-    await expect(page.getByText(`No papers match “${code}”`)).toBeVisible();
+    await expect(page.getByText(`Nothing matches “${code}”`)).toBeVisible();
 
     const [href] = await approveAll(page, code);
     const file = await page.request.get(href!);
@@ -135,6 +151,94 @@ test.describe("question papers", () => {
     const section = page.locator("section[aria-labelledby='course-papers']");
     await expect(section.getByRole("heading", { name: "Previous papers" })).toBeVisible();
     await expect(section.getByRole("link", { name: /^Open SCSA5101/ }).first()).toBeVisible();
+    // A subject with only papers looks as it always did: no kind filter.
+    await expect(section.getByRole("group", { name: "Show" })).toHaveCount(0);
+  });
+
+  test("notes wait for review, then show up under Notes, and the filter finds each kind", async ({ page }) => {
+    test.slow(); // Two uploads, a review and a browse.
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    const code = uniqueCode();
+
+    await apiLogin(page);
+    await share(page, { code, title: "E2E Data Structures", kind: "Notes", topic: "Unit 3: Trees", files: pdf(`${code}-notes`) });
+    await share(page, { code, title: "E2E Data Structures", files: pdf(`${code}-paper`) });
+
+    // The queue says what each one is.
+    await approveAll(page, code, async (items) => {
+      const queued = items.filter({ hasText: `${code} · Notes · Unit 3: Trees` });
+      await expect(queued.getByLabel("Kind")).toHaveValue("notes");
+      await expect(queued.getByLabel("Unit or topic")).toHaveValue("Unit 3: Trees");
+    });
+
+    await apiLogin(page);
+    await page.goto(`/papers?q=${code}`);
+    await waitForHydration(page);
+    const main = page.getByRole("main");
+    const group = main.locator(`[aria-labelledby="papers-${code}"]`);
+    const notes = group.getByRole("link", { name: `Open ${code} Notes · Unit 3: Trees` });
+    const paper = group.getByRole("link", { name: new RegExp(`^Open ${code} Model exam`) });
+    await expect(notes).toBeVisible();
+    await expect(paper).toBeVisible();
+    await expect(group.getByRole("heading", { name: /^Notes 1/ })).toBeVisible();
+    const file = await page.request.get((await notes.getAttribute("href"))!);
+    expect(file.status()).toBe(200);
+    expect(file.headers()["content-disposition"]).toContain(`${code}-notes-`);
+
+    const filter = main.getByRole("group", { name: "Show" });
+    await filter.getByRole("button", { name: "Notes" }).click();
+    await expect(filter.getByRole("button", { name: "Notes" })).toHaveAttribute("aria-pressed", "true");
+    await expect(paper).toHaveCount(0);
+    await expect(notes).toBeVisible();
+    await filter.getByRole("button", { name: "Past papers" }).click();
+    await expect(notes).toHaveCount(0);
+    await expect(paper).toBeVisible();
+    await filter.getByRole("button", { name: "Question banks" }).click();
+    await expect(page.getByText(`No question banks match “${code}”`)).toBeVisible();
+
+    expect(errors).toEqual([]);
+  });
+
+  test("admins can correct what kind something is", async ({ page }) => {
+    const code = uniqueCode();
+    await apiLogin(page);
+    await share(page, { code, kind: "Question bank", topic: "Unit 2", files: pdf(code) });
+
+    // Approving saves the corrected details first.
+    await approveAll(page, code, async (item) => {
+      await expect(item.getByLabel("Kind")).toHaveValue("question_bank");
+      await item.getByLabel("Kind").selectOption("notes");
+      await expect(item.getByLabel("Unit or topic")).toHaveValue("Unit 2");
+    });
+
+    // A link straight to one kind opens with that filter on.
+    await apiLogin(page);
+    await page.goto(`/papers?q=${code}&kind=notes`);
+    await waitForHydration(page);
+    await expect(page.getByRole("main").getByRole("group", { name: "Show" }).getByRole("button", { name: "Notes" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("link", { name: `Open ${code} Notes · Unit 2` })).toBeVisible();
+  });
+
+  test("a course page with notes too switches between kinds", async ({ page }) => {
+    test.slow(); // Two uploads and a review.
+    await apiLogin(page);
+    await share(page, { code: "SCSA5104", kind: "Notes", topic: "Unit 2: Requirements", files: pdf("course-notes") });
+    await share(page, { code: "SCSA5104", files: pdf("course-paper") });
+    await approveAll(page, "SCSA5104");
+    await page.goto("/courses/106");
+    await waitForHydration(page);
+    const section = page.locator("section[aria-labelledby='course-papers']");
+    await expect(section.getByRole("heading", { name: "Papers and notes" })).toBeVisible();
+    const filter = section.getByRole("group", { name: "Show" });
+    await expect(filter.getByRole("button", { name: /^Past papers/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(section.getByRole("link", { name: /^Open SCSA5104 Model exam/ }).first()).toBeVisible();
+    await expect(section.getByRole("link", { name: /^Open SCSA5104 Notes/ })).toHaveCount(0);
+    await filter.getByRole("button", { name: /^Notes/ }).click();
+    await expect(section.getByRole("link", { name: /^Open SCSA5104 Notes/ }).first()).toBeVisible();
+    await expect(section.getByRole("link", { name: /^Open SCSA5104 Model exam/ })).toHaveCount(0);
+    // Sharing from here starts with the kind on show.
+    await expect(section.getByRole("button", { name: "Share notes" })).toBeVisible();
   });
 
   test("the review queue is only for admins", async ({ page }) => {
@@ -149,8 +253,8 @@ test.describe("question papers", () => {
     await apiLogin(page);
     await page.goto("/papers");
     await waitForHydration(page);
-    await page.getByRole("main").getByRole("button", { name: "Share a paper" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Share a question paper" });
+    await page.getByRole("main").getByRole("button", { name: "Share papers or notes" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Share papers or notes" });
     await dialog.getByLabel("File").setInputFiles([pdf("a"), pdf("b")]);
     await dialog.getByRole("button", { name: "Share paper" }).click();
     await expect(dialog.getByRole("alert")).toHaveText(/Attach one PDF, or photos only/);

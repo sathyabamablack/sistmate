@@ -52,7 +52,7 @@ test.describe("support / donate", () => {
     await expect(page.getByRole("link", { name: /pay .* with upi/i })).toHaveCount(0);
   });
 
-  test("the desktop rail drops Notifications (the top bar has it) and does not scroll", async ({
+  test("the desktop rail drops Notifications (the top bar has it) and Fees, and does not scroll", async ({
     loggedInPage: page,
     isMobile,
   }) => {
@@ -62,7 +62,9 @@ test.describe("support / donate", () => {
 
     const rail = page.getByRole("navigation", { name: "Primary" });
     await expect(rail.getByRole("link", { name: "Notifications" })).toHaveCount(0);
-    await expect(rail.getByRole("link", { name: "Fees", exact: true })).toBeVisible();
+    // Fees is left out too; page search still finds it.
+    await expect(rail.getByRole("link", { name: "Fees", exact: true })).toHaveCount(0);
+    await expect(rail.getByRole("link", { name: "Marks", exact: true })).toBeVisible();
     // The top bar's bell still reaches the page.
     await expect(page.getByRole("banner").getByRole("link", { name: /notifications/i })).toBeVisible();
 

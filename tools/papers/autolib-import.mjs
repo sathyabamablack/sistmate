@@ -13,7 +13,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkMeta } from "../../packages/core/src/papers.ts";
+import { checkMeta, storedType } from "../../packages/core/src/papers.ts";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -61,7 +61,7 @@ for (let i = 0; i < rows.length; i += ROWS_PER_INSERT) {
       `a${String(r.accno).padStart(15, "0")}`,
       r.courseCode,
       r.courseTitle,
-      r.examType,
+      storedType(r),
       r.year,
       r.month,
       "autolib",

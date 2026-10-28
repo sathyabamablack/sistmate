@@ -14,7 +14,7 @@ test.describe("Sathyabama Black teasers", () => {
     const strip = page.getByRole("link", { name: /Sathyabama Black/ });
     await expect(strip).toBeVisible();
     await expect(strip).toHaveAttribute("href", "/black");
-    await page.getByRole("button", { name: "Dismiss" }).click();
+    await page.getByRole("button", { name: "Dismiss", exact: true }).click();
     await expect(strip).toBeHidden();
     await page.reload();
     await expect(page.getByRole("link", { name: /Sathyabama Black/ })).toBeHidden();

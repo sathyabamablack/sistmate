@@ -129,6 +129,20 @@ export function computeArrears(semesters: SemesterResult[]): Arrear[] {
   return out.sort((a, b) => a.semester - b.semester || a.code.localeCompare(b.code));
 }
 
+/**
+ * The standing-arrears count to show. The ERP profile's figure can lag behind its own
+ * results (it keeps counting a paper cleared in a later attempt), so whenever the results
+ * carry pass/fail outcomes the count comes from them; the profile's figure is the fallback
+ * only when nothing with an outcome is published.
+ */
+export function standingArrearsCount(
+  semesters: SemesterResult[],
+  profileArrears?: number,
+): number | undefined {
+  const known = semesters.some((s) => s.results.some((r) => attemptOutcome(r) !== "unknown"));
+  return known ? computeArrears(semesters).length : profileArrears;
+}
+
 /** "1 paper to clear", "2 papers to clear". */
 export function arrearsLabel(count: number): string {
   return `${count} ${count === 1 ? "paper" : "papers"} to clear`;

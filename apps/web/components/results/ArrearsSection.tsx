@@ -79,8 +79,8 @@ export function ArrearsNote({
       <p className="mt-3 flex gap-2 text-small text-muted-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <span>
-          Your ERP reports {profileArrears} standing {profileArrears === 1 ? "arrear" : "arrears"}, but
-          the papers are not in these results.
+          Your ERP profile still shows {profileArrears} {profileArrears === 1 ? "arrear" : "arrears"}, but
+          your published results have none left to clear.
         </span>
       </p>
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Paper, PaperMeta, PaperSubject, ReportReason } from "@usp/core/papers";
+import { fromStoredType, type Paper, type PaperKind, type PaperMeta, type PaperSubject, type ReportReason } from "@usp/core/papers";
 
 /** What a page hands its paper components: the Worker's origin and this visit's token. */
 export interface PapersClient {
@@ -39,12 +39,18 @@ async function call<T>(client: PapersClient, path: string, init: RequestInit = {
   return body as T;
 }
 
-export function listPapers(client: PapersClient, query: { course?: string[]; type?: string; status?: string }) {
+export function listPapers(client: PapersClient, query: { course?: string[]; kind?: PaperKind | null; type?: string; status?: string }) {
   const params = new URLSearchParams();
   if (query.course?.length) params.set("course", query.course.join(","));
+  if (query.kind) params.set("kind", query.kind);
   if (query.type) params.set("type", query.type);
   if (query.status) params.set("status", query.status);
-  return call<{ papers: Paper[] }>(client, `/papers?${params}`).then((r) => r.papers);
+  return call<{ papers: Paper[] }>(client, `/papers?${params}`).then((r) => r.papers.map(withKind));
+}
+
+/** A Worker from before notes and question banks sends no kind; its exam type says which it is. */
+function withKind(p: Paper): Paper {
+  return p.kind ? p : { ...p, ...fromStoredType(String(p.examType)), topic: null };
 }
 
 let subjectsCache: Promise<PaperSubject[]> | null = null;
@@ -75,9 +81,11 @@ export async function uploadPaper(client: PapersClient, meta: PaperMeta, pdf: Bl
   const params = new URLSearchParams({
     courseCode: meta.courseCode,
     courseTitle: meta.courseTitle,
-    examType: meta.examType,
+    kind: meta.kind,
+    examType: meta.examType ?? "",
     year: String(meta.year),
     month: meta.month ? String(meta.month) : "",
+    topic: meta.topic ?? "",
   });
   return call<{ id: string; status: string }>(client, `/uploads?${params}`, {
     method: "PUT",
@@ -95,7 +103,10 @@ export function reportPaper(client: PapersClient, paperId: string, reason: Repor
 }
 
 export function reviewQueue(client: PapersClient) {
-  return call<{ papers: Paper[]; reports: { paper_id: string; reason: string; n: number }[] }>(client, "/review");
+  return call<{ papers: Paper[]; reports: { paper_id: string; reason: string; n: number }[] }>(client, "/review").then((r) => ({
+    ...r,
+    papers: r.papers.map(withKind),
+  }));
 }
 
 export function moderatePaper(

@@ -9,6 +9,7 @@ import {
   Bell,
   BookOpen,
   FileText,
+  NotebookPen,
   Settings,
   Heart,
   type LucideIcon,
@@ -26,7 +27,7 @@ export interface NavItem {
   tab?: boolean;
   /** Left out of the phone "More" list because the sheet shows its own card for it. */
   skipInSheet?: boolean;
-  /** Left out of the desktop rail because the top bar already links to it. */
+  /** Left out of the desktop rail: the top bar links to it, or it is only reachable from page search. */
   skipInRail?: boolean;
 }
 
@@ -82,6 +83,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Fees",
     icon: Wallet,
     description: "Payments, dues and totals",
+    skipInRail: true,
   },
   {
     href: "/notifications",
@@ -104,7 +106,14 @@ export const NAV_ITEMS: NavItem[] = [
     group: "Learning",
     label: "Question papers",
     icon: FileText,
-    description: "Previous exam papers for your subjects",
+    description: "Past papers, notes and question banks",
+  },
+  {
+    href: "/prep",
+    group: "Learning",
+    label: "Exam prep",
+    icon: NotebookPen,
+    description: "What you need, revision and papers per subject",
   },
   {
     href: "/settings",

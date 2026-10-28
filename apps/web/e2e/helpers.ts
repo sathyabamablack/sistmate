@@ -13,6 +13,7 @@ export const NAV_PAGES = [
   { label: "Fees", path: "/fees" },
   { label: "Notifications", path: "/notifications" },
   { label: "Courses", path: "/courses" },
+  { label: "Exam prep", path: "/prep" },
 ] as const;
 
 const rand = (max: number) => Math.floor(Math.random() * max);
@@ -141,6 +142,15 @@ export async function navigateTo(page: Page, label: string, isMobile: boolean): 
     }).toPass();
     await drawer.getByRole("link", { name: label, exact: true }).click();
     await expect(drawer).toBeHidden();
+  } else if (label === "Fees") {
+    // The desktop rail leaves it out; page search (Ctrl K) still finds it.
+    const input = page.getByPlaceholder("Jump to a page…");
+    await expect(async () => {
+      await page.keyboard.press("Control+k");
+      await expect(input).toBeVisible({ timeout: 1_000 });
+    }).toPass();
+    await input.fill("Fees");
+    await page.getByRole("option", { name: /Fees/ }).click();
   } else if (label === "Notifications") {
     // The desktop rail leaves it out; the top bar's bell is the way in.
     await page.getByRole("banner").getByRole("link", { name: /notifications/i }).click();

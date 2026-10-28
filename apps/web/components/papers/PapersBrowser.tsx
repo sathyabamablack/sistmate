@@ -2,30 +2,40 @@
 
 import * as React from "react";
 import { FileText, Search } from "lucide-react";
-import { EXAM_TYPES, EXAM_TYPE_LABELS, matchSubjects, type Paper } from "@usp/core/papers";
+import { KIND_PLURALS, matchSubjects, type Paper, type PaperKind } from "@usp/core/papers";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Field, Input, Select } from "@/components/ui/Input";
+import { Field, Input } from "@/components/ui/Input";
 import { Panel } from "@/components/ui/Panel";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { listPapers, listSubjects, type PapersClient } from "./api";
-import { PaperList } from "./PaperList";
+import { KindFilter, PaperSections } from "./PaperList";
 import { UploadPaperDialog, type Subject } from "./UploadPaperDialog";
 
+/** What a subject with nothing of the chosen kind says. */
+const NOTHING_YET: Record<PaperKind | "all", string> = {
+  all: "Nothing shared yet. Have papers or notes from a senior?",
+  paper: "No past papers yet. Have one from a senior?",
+  notes: "No notes yet. Have some to share?",
+  question_bank: "No question banks yet. Have one to share?",
+};
+
 /**
- * Papers for this semester's subjects by default; typing searches every subject. Each subject
- * with no papers yet asks for one, since the collection grows from students sharing.
+ * Papers and notes for this semester's subjects by default; typing searches every subject. Each
+ * subject with nothing yet asks for something, since the collection grows from students sharing.
  */
 export function PapersBrowser({
   client,
   subjects,
   initialQuery = "",
+  initialKind = null,
 }: {
   client: PapersClient;
   subjects: Subject[];
   initialQuery?: string;
+  initialKind?: PaperKind | null;
 }) {
   const [query, setQuery] = React.useState(initialQuery);
-  const [type, setType] = React.useState("");
+  const [kind, setKind] = React.useState<PaperKind | null>(initialKind);
   const [papers, setPapers] = React.useState<Paper[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const searching = query.trim().length >= 2;
@@ -40,7 +50,7 @@ export function PapersBrowser({
           ? listSubjects(client).then((all) => matchSubjects(all, query.trim()).map((s) => s.code))
           : Promise.resolve(subjects.map((s) => s.code));
         codes
-          .then((course) => (course.length ? listPapers(client, { course, type }) : []))
+          .then((course) => (course.length ? listPapers(client, { course, kind }) : []))
           .then((list) => live && setPapers(list))
           .catch((err: unknown) => live && setError(err instanceof Error ? err.message : "Couldn't load papers."));
       },
@@ -50,7 +60,7 @@ export function PapersBrowser({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [client, subjects, query, type, searching]);
+  }, [client, subjects, query, kind, searching]);
 
   const groups = React.useMemo(() => {
     const byCode = new Map<string, { code: string; title: string; papers: Paper[] }>();
@@ -67,7 +77,7 @@ export function PapersBrowser({
 
   return (
     <div>
-      <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_12rem]">
+      <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
         <Field label="Search all subjects" htmlFor="papers-q">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -82,16 +92,7 @@ export function PapersBrowser({
             />
           </div>
         </Field>
-        <Field label="Kind" htmlFor="papers-type">
-          <Select id="papers-type" value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="">All kinds</option>
-            {EXAM_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {EXAM_TYPE_LABELS[t]}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <KindFilter value={kind} onChange={setKind} className="lg:pb-0.5" />
       </div>
 
       {error ? (
@@ -106,11 +107,17 @@ export function PapersBrowser({
       ) : groups.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title={searching ? `No papers match “${query.trim()}”` : "No subjects to show"}
-          description={searching ? "Try the subject code, or share a paper for it." : "Search for a subject code above."}
+          title={
+            !searching
+              ? "No subjects to show"
+              : kind
+                ? `No ${KIND_PLURALS[kind].toLowerCase()} match “${query.trim()}”`
+                : `Nothing matches “${query.trim()}”`
+          }
+          description={searching ? "Try the subject code, or be the first to share something for it." : "Search for a subject code above."}
         >
           <div className="mt-4">
-            <UploadPaperDialog client={client} subjects={subjects} />
+            <UploadPaperDialog client={client} subjects={subjects} defaultKind={kind ?? undefined} />
           </div>
         </EmptyState>
       ) : (
@@ -124,11 +131,11 @@ export function PapersBrowser({
                 <span className="text-small tabular-nums text-muted-foreground">{g.code}</span>
               </div>
               {g.papers.length ? (
-                <PaperList client={client} papers={g.papers} />
+                <PaperSections client={client} papers={g.papers} />
               ) : (
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-body text-muted-foreground">No papers yet. Have one from a senior?</p>
-                  <UploadPaperDialog client={client} subjects={subjects} defaultCode={g.code} />
+                  <p className="text-body text-muted-foreground">{NOTHING_YET[kind ?? "all"]}</p>
+                  <UploadPaperDialog client={client} subjects={subjects} defaultCode={g.code} defaultKind={kind ?? undefined} />
                 </div>
               )}
             </Panel>

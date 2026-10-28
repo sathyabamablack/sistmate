@@ -30,16 +30,20 @@ test.describe("dashboard alerts", () => {
     await expect(main.getByRole("heading", { name: "Heads up" })).toHaveCount(0);
   });
 
-  test("shows a countdown chip for the next exam and none for deadlines", async ({
+  test("counts down to the next exam once, and never to deadlines", async ({
     loggedInPage: page,
   }) => {
     await page.goto("/");
-    const chips = page.getByRole("main").getByRole("list", { name: "Coming up" });
-    await expect(chips).toBeVisible();
+    const main = page.getByRole("main");
+    // Two weeks out or less, the countdown sits in the "To do today" brief with a link to
+    // prepare, and the "Coming up" chip steps aside (e2e/brief.spec.ts brings it back).
     await expect(
-      chips.getByRole("listitem").filter({ hasText: /Next exam:/ }),
-    ).toHaveText(/CIA-2 Examination.* (today|tomorrow|in \d+ days)/);
-    await expect(page.getByRole("main").getByText(/Next deadline:/)).toHaveCount(0);
+      main
+        .getByRole("region", { name: "To do today" })
+        .getByRole("link", { name: /^Prepare for CIA-2 Examination/ }),
+    ).toContainText(/(Today|Tomorrow|In \d+ days)/);
+    await expect(main.getByRole("list", { name: "Coming up" })).toHaveCount(0);
+    await expect(main.getByText(/Next deadline:/)).toHaveCount(0);
   });
 
   test("follows the attendance threshold from settings", async ({

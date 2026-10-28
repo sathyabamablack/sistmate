@@ -1,10 +1,10 @@
 /**
- * SISTmate question papers API.
+ * SISTmate question papers API: past papers, notes and question banks ("papers" for short).
  *
- *   GET    /papers?course=A,B&type=&year=      approved papers for those subjects (admins may add &status=)
+ *   GET    /papers?course=A,B&kind=&type=&year=  approved papers for those subjects (admins may add &status=)
  *   GET    /subjects                           every subject with papers, for searching in the browser
  *   GET    /papers/:id/file?t=<token>           the PDF (approved, or any status for admins)
- *   PUT    /uploads?<meta>                      body = PDF; a student's paper goes to the review queue
+ *   PUT    /uploads?<meta>                      body = PDF; a student's upload goes to the review queue
  *   PUT    /import?<meta>&status=&source=&ref=  body = PDF; import tools only
  *   POST   /reports        { paperId, reason }  flag a paper
  *   GET    /review                              admins: pending papers and reported ones
@@ -20,8 +20,10 @@ import {
   PAPER_STATUSES,
   REPORT_REASONS,
   checkMeta,
+  fromStoredType,
   looksLikePdf,
   paperFileName,
+  storedType,
   verifyToken,
   type Paper,
   type PaperMeta,
@@ -40,7 +42,8 @@ interface Row {
   id: string;
   course_code: string;
   course_title: string;
-  exam_type: Paper["examType"];
+  /** A past paper's exam type, or "notes" / "question_bank" (see fromStoredType). */
+  exam_type: string;
   year: number;
   month: number | null;
   source: Paper["source"];
@@ -53,6 +56,7 @@ interface Row {
   department: string | null;
   file_ext: string | null;
   file_name: string | null;
+  topic: string | null;
   reports?: number;
 }
 
@@ -81,14 +85,18 @@ const json = (body: unknown, status = 200, headers: HeadersInit = {}) =>
 
 const fail = (status: number, error: string) => json({ error }, status);
 
+/** The details a download name needs. */
+const nameMeta = (r: Row) => ({ courseCode: r.course_code, ...fromStoredType(r.exam_type), year: r.year, month: r.month });
+
 function toPaper(r: Row, admin: boolean): Paper {
   const p: Paper = {
     id: r.id,
     courseCode: r.course_code,
     courseTitle: r.course_title,
-    examType: r.exam_type,
+    ...fromStoredType(r.exam_type),
     year: r.year,
     month: r.month,
+    topic: r.topic ?? null,
     source: r.source,
     status: r.status,
     bytes: r.bytes,
@@ -153,6 +161,13 @@ async function listPapers(url: URL, env: Env, who: TokenPayload): Promise<Respon
     args.push(...courses);
   }
 
+  const kind = url.searchParams.get("kind");
+  if (kind === "paper") {
+    where.push("exam_type NOT IN ('notes', 'question_bank')");
+  } else if (kind === "notes" || kind === "question_bank") {
+    where.push("exam_type = ?");
+    args.push(kind);
+  }
   const type = url.searchParams.get("type");
   if (type) {
     where.push("exam_type = ?");
@@ -211,7 +226,7 @@ async function serveLibraryFile(row: Row, env: Env, ctx: ExecutionContext): Prom
     }
     if (row.file_ext !== ext) ctx.waitUntil(env.DB.prepare("UPDATE papers SET file_ext = ? WHERE id = ?").bind(ext, row.id).run());
     ctx.waitUntil(env.DB.prepare("UPDATE papers SET downloads = downloads + 1 WHERE id = ?").bind(row.id).run());
-    const name = paperFileName({ courseCode: row.course_code, examType: row.exam_type, year: row.year, month: row.month }).replace(/\.pdf$/, `.${ext}`);
+    const name = paperFileName(nameMeta(row)).replace(/\.pdf$/, `.${ext}`);
     return new Response(upstream.body, {
       headers: {
         "Content-Type": LIBRARY_TYPES[ext] ?? "application/octet-stream",
@@ -249,12 +264,7 @@ async function serveFile(id: string, env: Env, who: TokenPayload, ctx: Execution
   return new Response(file, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${paperFileName({
-        courseCode: row.course_code,
-        examType: row.exam_type,
-        year: row.year,
-        month: row.month,
-      })}"`,
+      "Content-Disposition": `inline; filename="${paperFileName(nameMeta(row))}"`,
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, max-age=3600",
       "Referrer-Policy": "no-referrer",
@@ -295,10 +305,10 @@ async function storePaper(
 
   try {
     await env.DB.prepare(
-      `INSERT INTO papers (id, course_code, course_title, exam_type, year, month, source, source_ref, bytes, sha256, status, uploader, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO papers (id, course_code, course_title, exam_type, year, month, topic, source, source_ref, bytes, sha256, status, uploader, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-      .bind(id, meta.courseCode, meta.courseTitle, meta.examType, meta.year, meta.month, opts.source, opts.sourceRef, length, sha256, opts.status, opts.uploader, now())
+      .bind(id, meta.courseCode, meta.courseTitle, storedType(meta), meta.year, meta.month, meta.topic, opts.source, opts.sourceRef, length, sha256, opts.status, opts.uploader, now())
       .run();
   } catch (err) {
     // Two people sharing the same file at the same moment both pass the check above.
@@ -314,9 +324,11 @@ function metaFromQuery(url: URL) {
   return checkMeta({
     courseCode: p.get("courseCode") ?? "",
     courseTitle: p.get("courseTitle") ?? "",
+    kind: p.get("kind") ?? "",
     examType: p.get("examType") ?? "",
     year: p.get("year") ?? "",
     month: p.get("month") ?? "",
+    topic: p.get("topic") ?? "",
   });
 }
 
@@ -325,7 +337,7 @@ async function upload(req: Request, url: URL, env: Env, who: TokenPayload): Prom
   if (!meta.ok) return fail(400, meta.error);
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM papers WHERE uploader = ? AND created_at > ?").bind(who.sub, since).first<{ n: number }>();
-  if ((recent?.n ?? 0) >= DAILY_UPLOAD_LIMIT) return fail(429, `You can upload ${DAILY_UPLOAD_LIMIT} papers a day. Try again tomorrow.`);
+  if ((recent?.n ?? 0) >= DAILY_UPLOAD_LIMIT) return fail(429, `You can share ${DAILY_UPLOAD_LIMIT} files a day. Try again tomorrow.`);
   return storePaper(req, env, meta.value, { status: "pending", source: "student", sourceRef: null, uploader: who.sub });
 }
 
@@ -383,8 +395,8 @@ async function moderate(id: string, req: Request, env: Env, who: TokenPayload): 
     const meta = checkMeta({ ...body.meta });
     if (!meta.ok) return fail(400, meta.error);
     const m = meta.value;
-    await env.DB.prepare("UPDATE papers SET course_code = ?, course_title = ?, exam_type = ?, year = ?, month = ? WHERE id = ?")
-      .bind(m.courseCode, m.courseTitle, m.examType, m.year, m.month, id)
+    await env.DB.prepare("UPDATE papers SET course_code = ?, course_title = ?, exam_type = ?, year = ?, month = ?, topic = ? WHERE id = ?")
+      .bind(m.courseCode, m.courseTitle, storedType(m), m.year, m.month, m.topic, id)
       .run();
   } else {
     return fail(400, "Unknown action.");

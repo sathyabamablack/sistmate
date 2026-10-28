@@ -1,6 +1,6 @@
 /**
- * Question papers (previous-year papers, sample papers): the pieces shared by the web app, the
- * Cloudflare Worker that stores them (workers/papers) and the import tools (tools/papers).
+ * Question papers, notes and question banks: the pieces shared by the web app, the Cloudflare
+ * Worker that stores them (workers/papers) and the import tools (tools/papers).
  *
  * Pure functions plus Web Crypto, so the same module runs in Node, the browser and Workers.
  *
@@ -8,7 +8,30 @@
  * it. `sub` is an HMAC of the register number, so the Worker never sees or stores register numbers.
  */
 
-export const EXAM_TYPES = ["end_sem", "cae", "model", "sample", "question_bank", "other"] as const;
+/**
+ * What an item is. Past papers say which exam they're from; notes and question banks may say
+ * which unit or topic they cover instead. The database keeps the kind in exam_type: "notes" and
+ * "question_bank" mark those kinds and any other value is a past paper's exam type, so rows from
+ * before kinds existed (the library's included) are past papers without being rewritten.
+ */
+export const PAPER_KINDS = ["paper", "notes", "question_bank"] as const;
+export type PaperKind = (typeof PAPER_KINDS)[number];
+
+export const KIND_LABELS: Record<PaperKind, string> = {
+  paper: "Past paper",
+  notes: "Notes",
+  question_bank: "Question bank",
+};
+
+/** For filters and counts. */
+export const KIND_PLURALS: Record<PaperKind, string> = {
+  paper: "Past papers",
+  notes: "Notes",
+  question_bank: "Question banks",
+};
+
+/** Which exam a past paper is from. */
+export const EXAM_TYPES = ["end_sem", "cae", "model", "sample", "other"] as const;
 export type ExamType = (typeof EXAM_TYPES)[number];
 
 export const EXAM_TYPE_LABELS: Record<ExamType, string> = {
@@ -16,9 +39,19 @@ export const EXAM_TYPE_LABELS: Record<ExamType, string> = {
   cae: "CAE / internal",
   model: "Model exam",
   sample: "Sample paper",
-  question_bank: "Question bank",
   other: "Other",
 };
+
+/** The exam_type column's value for an item: the exam type for a past paper, else the kind. */
+export function storedType(m: Pick<PaperMeta, "kind" | "examType">): string {
+  return m.kind === "paper" ? (m.examType ?? "other") : m.kind;
+}
+
+/** The kind and exam type an exam_type column value stands for. */
+export function fromStoredType(stored: string): { kind: PaperKind; examType: ExamType | null } {
+  if (stored === "notes" || stored === "question_bank") return { kind: stored, examType: null };
+  return { kind: "paper", examType: (EXAM_TYPES as readonly string[]).includes(stored) ? (stored as ExamType) : "other" };
+}
 
 export const PAPER_SOURCES = ["student", "autolib", "import"] as const;
 export type PaperSource = (typeof PAPER_SOURCES)[number];
@@ -36,14 +69,19 @@ export const DAILY_UPLOAD_LIMIT = 10;
 export const REPORT_REASONS = ["wrong_course", "unreadable", "not_a_paper", "duplicate", "other"] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
 
-/** A paper as the Worker returns it to the app. */
+/** A paper, notes or question bank as the Worker returns it to the app. */
 export interface Paper {
   id: string;
   courseCode: string;
   courseTitle: string;
-  examType: ExamType;
+  kind: PaperKind;
+  /** Past papers only. */
+  examType: ExamType | null;
+  /** A past paper's exam year; for notes and question banks, the year shared unless someone said. */
   year: number;
   month: number | null;
+  /** Unit or topic, for notes and question banks. */
+  topic: string | null;
   source: PaperSource;
   status: PaperStatus;
   /** 0 when unknown (library papers are fetched from the library when opened). */
@@ -84,9 +122,14 @@ export function matchSubjects(subjects: PaperSubject[], query: string, limit = 4
 export interface PaperMeta {
   courseCode: string;
   courseTitle: string;
-  examType: ExamType;
+  kind: PaperKind;
+  /** Past papers only; null for notes and question banks. */
+  examType: ExamType | null;
   year: number;
+  /** Past papers only. */
   month: number | null;
+  /** Notes and question banks only: the unit or topic, if given. */
+  topic: string | null;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -110,7 +153,18 @@ export function isCourseCode(raw: string): boolean {
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string };
 
-/** Validates and normalises metadata from a form, a query string or an importer. */
+/** One line of plain text: runs of spaces and control characters become a single space. */
+function oneLine(raw: unknown, max: number): string {
+  return String(raw ?? "").replace(/[\s\p{Cc}]+/gu, " ").trim().slice(0, max);
+}
+
+const given = (v: unknown) => v !== undefined && v !== null && v !== "";
+
+/**
+ * Validates and normalises metadata from a form, a query string or an importer. Without a kind
+ * it's a past paper, except that the exam types "question_bank" and "notes" still mean those
+ * kinds (question banks were an exam type before kinds existed).
+ */
 export function checkMeta(
   input: Partial<Record<keyof PaperMeta, unknown>>,
   now: Date = new Date(),
@@ -118,24 +172,33 @@ export function checkMeta(
   const courseCode = normalizeCourseCode(String(input.courseCode ?? ""));
   if (!isCourseCode(courseCode)) return { ok: false, error: "Enter the subject code, like SCSB1303." };
 
-  const courseTitle = String(input.courseTitle ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
+  const courseTitle = oneLine(input.courseTitle, 120);
 
-  const examType = String(input.examType ?? "") as ExamType;
-  if (!EXAM_TYPES.includes(examType)) return { ok: false, error: "Pick what kind of paper this is." };
+  const rawType = String(input.examType ?? "");
+  const kind = (given(input.kind) ? String(input.kind) : rawType === "notes" || rawType === "question_bank" ? rawType : "paper") as PaperKind;
+  if (!PAPER_KINDS.includes(kind)) return { ok: false, error: "Pick what you're sharing." };
 
-  const year = Number(input.year);
-  if (!Number.isInteger(year) || year < 2000 || year > now.getFullYear() + 1) {
-    return { ok: false, error: "Enter the year of the exam." };
+  let examType: ExamType | null = null;
+  if (kind === "paper") {
+    examType = rawType as ExamType;
+    if (!EXAM_TYPES.includes(examType)) return { ok: false, error: "Pick what kind of paper this is." };
   }
 
-  const rawMonth = input.month;
+  // Notes and question banks don't ask for a year: they're dated the year they're shared.
+  const year = kind === "paper" || given(input.year) ? Number(input.year) : now.getFullYear();
+  if (!Number.isInteger(year) || year < 2000 || year > now.getFullYear() + 1) {
+    return { ok: false, error: kind === "paper" ? "Enter the year of the exam." : "Enter a year from 2000 on." };
+  }
+
   let month: number | null = null;
-  if (rawMonth !== undefined && rawMonth !== null && rawMonth !== "") {
-    month = Number(rawMonth);
+  if (kind === "paper" && given(input.month)) {
+    month = Number(input.month);
     if (!Number.isInteger(month) || month < 1 || month > 12) return { ok: false, error: "Pick a month from the list." };
   }
 
-  return { ok: true, value: { courseCode, courseTitle, examType, year, month } };
+  const topic = kind === "paper" ? null : oneLine(input.topic, 80) || null;
+
+  return { ok: true, value: { courseCode, courseTitle, kind, examType, year, month, topic } };
 }
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -166,7 +229,8 @@ export function guessMeta(raw: string): Partial<PaperMeta> {
   const lastMonth = named.at(-1)?.[1];
   if (lastMonth) guess.month = MONTHS.indexOf(lastMonth) + 1;
 
-  if (/question\s*bank/.test(lower)) guess.examType = "question_bank";
+  if (/question\s*bank/.test(lower)) guess.kind = "question_bank";
+  else if (/\bnotes\b/.test(lower)) guess.kind = "notes";
   else if (/\bmodel\b/.test(lower)) guess.examType = "model";
   else if (/\bsample\b|\bspecimen\b/.test(lower)) guess.examType = "sample";
   else if (/\bcae\b|\binternal\b|\bcat\b|\bcia\b/.test(lower)) guess.examType = "cae";
@@ -184,10 +248,10 @@ export function looksLikePdf(head: Uint8Array): boolean {
   return head.length >= magic.length && magic.every((b, i) => head[i] === b);
 }
 
-/** A short, safe download name like `SCSB1303-end_sem-2024-11.pdf`. */
-export function paperFileName(p: Pick<PaperMeta, "courseCode" | "examType" | "year" | "month">): string {
+/** A short, safe download name like `SCSB1303-end_sem-2024-11.pdf` or `SCSB1303-notes-2026.pdf`. */
+export function paperFileName(p: Pick<PaperMeta, "courseCode" | "kind" | "examType" | "year" | "month">): string {
   const month = p.month ? `-${String(p.month).padStart(2, "0")}` : "";
-  return `${p.courseCode}-${p.examType}-${p.year}${month}.pdf`;
+  return `${p.courseCode}-${storedType(p)}-${p.year}${month}.pdf`;
 }
 
 // ---------------------------------------------------------------------------------------------

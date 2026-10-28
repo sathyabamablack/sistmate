@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import Link from "@/components/ui/IntentLink";
 import { overallAttendance, hasGrades, computeCgpa } from "@usp/core";
 import type { CalendarEvent, DashboardData } from "@usp/core";
@@ -12,9 +13,13 @@ import { ClassCountdown } from "@/components/dashboard/ClassCountdown";
 import { TourCard } from "@/components/dashboard/TourCard";
 import { BlackStrip } from "@/components/black/BlackStrip";
 import { CountdownChips, RiskBanner } from "@/components/dashboard/RiskBanner";
+import { MorningBrief } from "@/components/dashboard/MorningBrief";
 import { TodayAttendanceChip } from "@/components/dashboard/TodayAttendanceChip";
 import { attendanceAdvice, attendanceTone, formatPct } from "@/lib/attendance";
-import { arrearsLabel, computeArrears, type Arrear } from "@/lib/arrears";
+import { todayVerdicts } from "@/lib/attendance-days";
+import { arrearsLabel, computeArrears, standingArrearsCount, type Arrear } from "@/lib/arrears";
+import { BRIEF_COOKIE, buildBrief, parseBriefMemory } from "@/lib/brief";
+import { examSubject } from "@/lib/prep";
 import { attendanceRisks, nextCountdowns } from "@/lib/risk";
 import {
   CAMPUS_TZ,
@@ -45,7 +50,7 @@ export const dynamic = "force-dynamic";
 const MAIN_COLUMN: ReadonlySet<DashboardSection> = new Set(["today", "attendance", "courses"]);
 
 export default async function DashboardPage() {
-  const [data, prefs] = await Promise.all([requireDashboardData(), getPrefs()]);
+  const [data, prefs, cookieStore] = await Promise.all([requireDashboardData(), getPrefs(), cookies()]);
   const threshold = prefs.attendanceThreshold;
   const lmsConfigured = dataSource() === "live" && !!process.env.LMS_BASE_URL;
   const showConnectMoodle = lmsConfigured && !(await getSession()).lmsToken;
@@ -102,6 +107,16 @@ export default async function DashboardPage() {
   const risks = attendanceRisks(data.attendance, threshold);
   const countdowns = nextCountdowns(data.events, now);
   const arrears = computeArrears(data.results);
+  const subjects = erpSubjects(data.attendance, data.timetable);
+  const brief = buildBrief({
+    data,
+    now,
+    threshold,
+    timeFormat: prefs.timeFormat,
+    memory: parseBriefMemory(cookieStore.get(BRIEF_COOKIE)?.value),
+    holiday: todayVerdicts(data, now).daily.kind === "holiday",
+    examCode: (e) => examSubject(e, subjects)?.code ?? null,
+  });
 
   const firstName = titleCase(data.profile.name).split(/\s+/)[0] ?? data.profile.name;
   const programLine = [
@@ -370,7 +385,13 @@ export default async function DashboardPage() {
     );
   };
 
-  const hasAlerts = risks.length > 0 || countdowns.exam != null;
+  /*
+   * The brief carries the exam countdown when the exam is two weeks away or less, with a
+   * link to prepare; the chip is then left out, and comes back if the brief is dismissed.
+   * A brief with nothing to say renders nothing, and `empty:hidden` drops the wrapper.
+   */
+  const examChip = <CountdownChips exam={countdowns.exam} />;
+  const hasAlerts = risks.length > 0 || countdowns.exam != null || !brief.dismissed;
 
   return (
     <div className="space-y-6">
@@ -402,9 +423,19 @@ export default async function DashboardPage() {
       {showConnectMoodle ? <ConnectMoodleCard /> : null}
 
       {hasAlerts ? (
-        <div className="enter space-y-3" style={{ "--i": 1 } as React.CSSProperties}>
+        <div className="enter space-y-3 empty:hidden" style={{ "--i": 1 } as React.CSSProperties}>
           <RiskBanner risks={risks} threshold={threshold} />
-          <CountdownChips exam={countdowns.exam} />
+          {brief.dismissed ? null : (
+            <MorningBrief
+              lines={brief.lines}
+              today={brief.today}
+              memory={brief.memory}
+              hourly={data.hourlyAttendance}
+              timetable={data.timetable}
+              fallback={brief.examInBrief ? examChip : null}
+            />
+          )}
+          {brief.examInBrief ? null : examChip}
         </div>
       ) : null}
 
@@ -465,14 +496,14 @@ function glanceItems(data: DashboardData, arrears: Arrear[]) {
         {arrearsLabel(arrears.length)}
       </Link>
     ) : null;
-  if (data.profile.arrears != null) {
+  // From the results when they carry outcomes; the ERP profile's own figure can lag behind them.
+  const standing = standingArrearsCount(data.results, data.profile.arrears);
+  if (standing != null) {
     items.push({
       label: "Arrears",
-      value: data.profile.arrears,
-      hint: toClear ?? (data.profile.arrears === 0 ? "None to clear" : "Papers still to clear"),
+      value: standing,
+      hint: toClear ?? (standing === 0 ? "None to clear" : "Papers still to clear"),
     });
-  } else if (toClear) {
-    items.push({ label: "Arrears", value: arrears.length, hint: toClear });
   }
 
   const due = data.fees.filter((f) => (f.status ? f.status === "due" : !f.paid));

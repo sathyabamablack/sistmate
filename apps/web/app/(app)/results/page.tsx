@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { computeCgpa, hasGrades } from "@usp/core";
 import type { SemesterResult } from "@usp/core";
 import { requireDashboardData, getGradingSettings } from "@/lib/data";
-import { computeArrears } from "@/lib/arrears";
+import { computeArrears, standingArrearsCount } from "@/lib/arrears";
+import { Sparkles } from "lucide-react";
+import Link from "@/components/ui/IntentLink";
+import { buttonClass } from "@/components/ui/Button";
 import { ArrearsSection } from "@/components/results/ArrearsSection";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -43,10 +46,18 @@ export default async function ResultsPage({
     );
   }
 
+  // A shareable recap of the latest semester (app/(app)/results/wrapped).
+  const wrapped = (
+    <Link href="/results/wrapped" className={buttonClass("secondary", "sm")}>
+      <Sparkles className="h-4 w-4" aria-hidden />
+      Your semester, wrapped
+    </Link>
+  );
+
   if (graded) {
     return (
       <div>
-        <PageHeader title="Results" />
+        <PageHeader title="Results" actions={wrapped} />
         <GradedResults
           semesters={gradedSemesters}
           cgpa={computeCgpa(gradedSemesters)}
@@ -61,9 +72,9 @@ export default async function ResultsPage({
   const selected = pickSemester(semesters, sem);
   return (
     <div>
-      <PageHeader title="Results" description="End-semester marks, by semester." />
+      <PageHeader title="Results" description="End-semester marks, by semester." actions={wrapped} />
       <div className="space-y-8">
-        <MarksSummary semesters={semesters} arrears={data.profile.arrears} />
+        <MarksSummary semesters={semesters} arrears={standingArrearsCount(semesters, data.profile.arrears)} />
         <ArrearsSection arrears={arrears} />
         {semesters.length > 1 ? (
           <LinkTabs

@@ -363,4 +363,7 @@ export const PERIOD_CACHE_SECTIONS: readonly string[] = [
   ...DAILY_PERIOD_IDS.filter((id) => id !== DEFAULT_DAILY_PERIOD).map(dailyPeriodSection),
   ...HOURLY_PERIOD_IDS.filter((id) => id !== DEFAULT_HOURLY_PERIOD).map(hourlyPeriodSection),
   ACADEMIC_WINDOW_SECTION,
+  // The OD tracker's older hour-wise days (OD_HOURLY_SECTION in lib/od.ts, which holds a React
+  // hook, so it is not imported here).
+  "hourly-attendance@od",
 ];

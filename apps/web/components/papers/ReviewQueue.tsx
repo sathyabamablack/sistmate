@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ExternalLink, Inbox } from "lucide-react";
-import { EXAM_TYPES, EXAM_TYPE_LABELS, checkMeta, type Paper } from "@usp/core/papers";
+import { EXAM_TYPES, EXAM_TYPE_LABELS, KIND_LABELS, PAPER_KINDS, checkMeta, type Paper } from "@usp/core/papers";
 import { Badge } from "@/components/ui/Badge";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -71,9 +71,12 @@ function ReviewItem({
   const [form, setForm] = React.useState({
     courseCode: paper.courseCode,
     courseTitle: paper.courseTitle,
-    examType: paper.examType,
+    kind: paper.kind,
+    // Kept while the kind is something else, in case it's switched back.
+    examType: paper.examType ?? "end_sem",
     year: String(paper.year),
     month: paper.month ? String(paper.month) : "",
+    topic: paper.topic ?? "",
   });
   const [reason, setReason] = React.useState("");
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -109,6 +112,7 @@ function ReviewItem({
           {paper.courseCode} · {paperLabel(paper)}
         </h2>
         <Badge variant={paper.status === "pending" ? "warning" : "danger"}>{paper.status === "pending" ? "New" : "Reported"}</Badge>
+        <Badge variant="outline">{KIND_LABELS[paper.kind]}</Badge>
         <Badge variant="muted">{paper.source}</Badge>
       </div>
       <p className="mt-1 text-small text-muted-foreground">
@@ -132,22 +136,44 @@ function ReviewItem({
           <Input id={`${id}-name`} value={form.courseTitle} onChange={set("courseTitle")} />
         </Field>
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <Field label="Kind" htmlFor={`${id}-type`}>
-          <Select id={`${id}-type`} value={form.examType} onChange={set("examType")}>
-            {EXAM_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {EXAM_TYPE_LABELS[t]}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Field label="Kind" htmlFor={`${id}-kind`}>
+          <Select id={`${id}-kind`} value={form.kind} onChange={set("kind")}>
+            {PAPER_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {KIND_LABELS[k]}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="Year" htmlFor={`${id}-year`}>
-          <Input id={`${id}-year`} inputMode="numeric" value={form.year} onChange={set("year")} />
-        </Field>
-        <Field label="Month (1-12)" htmlFor={`${id}-month`}>
-          <Input id={`${id}-month`} inputMode="numeric" value={form.month} onChange={set("month")} />
-        </Field>
+        {form.kind === "paper" ? (
+          <>
+            <Field label="Exam" htmlFor={`${id}-type`}>
+              <Select id={`${id}-type`} value={form.examType} onChange={set("examType")}>
+                {EXAM_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {EXAM_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Year" htmlFor={`${id}-year`}>
+              <Input id={`${id}-year`} inputMode="numeric" value={form.year} onChange={set("year")} />
+            </Field>
+            <Field label="Month (1-12)" htmlFor={`${id}-month`}>
+              <Input id={`${id}-month`} inputMode="numeric" value={form.month} onChange={set("month")} />
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label="Unit or topic" htmlFor={`${id}-topic`} className="lg:col-span-2">
+              <Input id={`${id}-topic`} value={form.topic} onChange={set("topic")} maxLength={80} placeholder="Optional" />
+            </Field>
+            <Field label="Year" htmlFor={`${id}-year`}>
+              <Input id={`${id}-year`} inputMode="numeric" value={form.year} onChange={set("year")} />
+            </Field>
+          </>
+        )}
       </div>
 
       <div className="mt-4 flex flex-wrap items-end gap-2">

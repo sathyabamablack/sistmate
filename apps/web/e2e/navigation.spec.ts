@@ -1,6 +1,11 @@
 import { test, expect, NAV_PAGES, navigateTo, pageHeading, waitForHydration } from "./helpers";
 
 test.describe("navigation", () => {
+  // Pages like Exam prep call the papers Worker from the browser, and the context-wide
+  // X-Forwarded-For header fails its CORS preflight (real browsers never send it). Logins set
+  // their own header (helpers.ts apiLogin), so the throttle still sees a distinct client.
+  test.use({ extraHTTPHeaders: {} });
+
   for (const { label, path } of NAV_PAGES) {
     test(`${label} page loads from the nav`, async ({ loggedInPage: page, isMobile }) => {
       await page.goto("/");
@@ -37,7 +42,9 @@ test.describe("navigation", () => {
       await page.keyboard.press("Escape");
       await expect(sheet).toBeHidden();
     } else {
-      await expect(primary.getByRole("link", { name: "Fees", exact: true })).toBeVisible();
+      await expect(primary.getByRole("link", { name: "Marks", exact: true })).toBeVisible();
+      // Fees is left out of the rail; page search still finds it.
+      await expect(primary.getByRole("link", { name: "Fees", exact: true })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Open navigation" })).toBeHidden();
     }
   });

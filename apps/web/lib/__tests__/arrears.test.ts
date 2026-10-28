@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SemesterResult } from "@usp/core";
-import { arrearsLabel, attemptOutcome, computeArrears } from "../arrears";
+import { arrearsLabel, attemptOutcome, computeArrears, standingArrearsCount } from "../arrears";
 
 const sem = (semester: number, results: SemesterResult["results"]): SemesterResult => ({
   semester,
@@ -148,5 +148,21 @@ describe("arrearsLabel", () => {
   it("pluralises", () => {
     expect(arrearsLabel(1)).toBe("1 paper to clear");
     expect(arrearsLabel(2)).toBe("2 papers to clear");
+  });
+});
+
+describe("standingArrearsCount", () => {
+  it("counts from the results, not a stale ERP figure, once a paper is cleared", () => {
+    const results = [
+      sem(1, [{ code: "M1", title: "Maths", passed: false }]),
+      sem(2, [{ code: "M1", title: "Maths", passed: true }]),
+    ];
+    expect(standingArrearsCount(results, 1)).toBe(0);
+  });
+
+  it("falls back to the ERP figure only when no result has an outcome", () => {
+    expect(standingArrearsCount([], 2)).toBe(2);
+    expect(standingArrearsCount([sem(1, [{ code: "M1", title: "Maths" }])], 2)).toBe(2);
+    expect(standingArrearsCount([], undefined)).toBeUndefined();
   });
 });

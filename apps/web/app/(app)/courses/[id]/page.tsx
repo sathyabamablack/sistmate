@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/ui/IntentLink";
 import { notFound, redirect } from "next/navigation";
-import { BookOpen, TriangleAlert } from "lucide-react";
+import { ArrowRight, BookOpen, TriangleAlert } from "lucide-react";
 import { getDashboardData, requireDashboardData } from "@/lib/data";
 import {
   courseFiles,
@@ -60,6 +60,10 @@ export default async function CoursePage({ params }: Props) {
   const units = contents ? contents.sections.filter((s) => !sectionIsEmpty(s)) : [];
   const stats = contents ? courseStats(contents) : null;
   const grade = contents?.grade ?? (course.grade ? { display: course.grade, percentage: null } : null);
+  // Exam prep exists for this semester's ERP subjects only (app/(app)/prep).
+  const subjects = erpSubjects(data.attendance, data.timetable);
+  const prepCode = course.displayCode?.toUpperCase();
+  const hasPrep = !!prepCode && subjects.some((s) => s.code === prepCode);
 
   const files: MaterialFile[] = courseFiles(units).map((r) => ({
     key: `${r.cmid}-${r.index}`,
@@ -99,6 +103,15 @@ export default async function CoursePage({ params }: Props) {
           {stats && statsLine(stats) ? <span className="tabular-nums">{statsLine(stats)}</span> : null}
           {course.lastAccess ? <span>Last opened {relativeTo(course.lastAccess, now)}</span> : null}
         </p>
+        {hasPrep ? (
+          <Link
+            href={`/prep/${prepCode}`}
+            className="focusable mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-sm text-small font-semibold text-primary underline-offset-4 hover:underline lg:min-h-0"
+          >
+            Exam prep for this subject
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        ) : null}
 
         <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-3">
           <div className="min-w-0">
@@ -165,7 +178,7 @@ export default async function CoursePage({ params }: Props) {
           <CoursePapers
             client={papers}
             subject={{ code: course.displayCode, title: course.displayName ?? course.fullName }}
-            subjects={erpSubjects(data.attendance, data.timetable)}
+            subjects={subjects}
           />
         </div>
       ) : null}

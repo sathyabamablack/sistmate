@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   checkMeta,
+  fromStoredType,
   guessMeta,
   isCourseCode,
   looksLikePdf,
   matchSubjects,
   paperFileName,
   signToken,
+  storedType,
   subjectFor,
   verifyToken,
 } from "../src/papers";
@@ -22,7 +24,7 @@ describe("checkMeta", () => {
   it("normalises a good form", () => {
     expect(checkMeta({ courseCode: " scsb1303 ", courseTitle: "  Theory   of Computation ", examType: "end_sem", year: "2025", month: "11" }, NOW)).toEqual({
       ok: true,
-      value: { courseCode: "SCSB1303", courseTitle: "Theory of Computation", examType: "end_sem", year: 2025, month: 11 },
+      value: { courseCode: "SCSB1303", courseTitle: "Theory of Computation", kind: "paper", examType: "end_sem", year: 2025, month: 11, topic: null },
     });
   });
 
@@ -31,16 +33,60 @@ describe("checkMeta", () => {
     expect(r.ok && r.value.month).toBe(null);
   });
 
+  it("takes notes without a year or exam, dated the year they're shared", () => {
+    expect(checkMeta({ courseCode: "SCSB1303", kind: "notes", examType: "", year: "", month: "", topic: "  Unit 3:\n Trees\u0000 " }, NOW)).toEqual({
+      ok: true,
+      value: { courseCode: "SCSB1303", courseTitle: "", kind: "notes", examType: null, year: 2026, month: null, topic: "Unit 3: Trees" },
+    });
+  });
+
+  it("keeps a question bank's year when given, drops what only papers have", () => {
+    const r = checkMeta({ courseCode: "SCSB1303", kind: "question_bank", examType: "end_sem", year: 2024, month: 5, topic: "" }, NOW);
+    expect(r.ok && r.value).toMatchObject({ kind: "question_bank", examType: null, year: 2024, month: null, topic: null });
+  });
+
+  it("drops a past paper's topic and caps a long one", () => {
+    const paper = checkMeta({ courseCode: "SCSB1303", kind: "paper", examType: "cae", year: 2024, topic: "Unit 1" }, NOW);
+    expect(paper.ok && paper.value.topic).toBe(null);
+    const notes = checkMeta({ courseCode: "SCSB1303", kind: "notes", topic: "x".repeat(200) }, NOW);
+    expect(notes.ok && notes.value.topic).toHaveLength(80);
+  });
+
+  it("still reads question banks and notes sent as an exam type", () => {
+    const r = checkMeta({ courseCode: "SCSB1303", examType: "question_bank", year: 2023, month: "" }, NOW);
+    expect(r.ok && r.value).toMatchObject({ kind: "question_bank", examType: null, year: 2023 });
+    expect(checkMeta({ courseCode: "SCSB1303", examType: "notes" }, NOW)).toMatchObject({ ok: true, value: { kind: "notes" } });
+  });
+
   it.each([
     [{ courseCode: "HELLO", examType: "end_sem", year: 2024 }, /subject code/],
     [{ courseCode: "SCSB1303", examType: "quiz", year: 2024 }, /kind of paper/],
+    [{ courseCode: "SCSB1303", kind: "paper", examType: "question_bank", year: 2024 }, /kind of paper/],
+    [{ courseCode: "SCSB1303", kind: "slides", year: 2024 }, /what you're sharing/],
     [{ courseCode: "SCSB1303", examType: "cae", year: 1999 }, /year/],
     [{ courseCode: "SCSB1303", examType: "cae", year: 2028 }, /year/],
+    [{ courseCode: "SCSB1303", examType: "cae", year: "" }, /year/],
+    [{ courseCode: "SCSB1303", kind: "notes", year: 1999 }, /year/],
     [{ courseCode: "SCSB1303", examType: "cae", year: 2024, month: 13 }, /month/],
   ])("rejects %j", (input, error) => {
     const r = checkMeta(input, NOW);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatch(error);
+  });
+});
+
+describe("kinds in the exam_type column", () => {
+  it("stores past papers by exam type and the rest by kind", () => {
+    expect(storedType({ kind: "paper", examType: "model" })).toBe("model");
+    expect(storedType({ kind: "notes", examType: null })).toBe("notes");
+    expect(storedType({ kind: "question_bank", examType: null })).toBe("question_bank");
+  });
+
+  it("reads every existing exam type back as a past paper, except question banks", () => {
+    for (const t of ["end_sem", "cae", "model", "sample", "other"]) expect(fromStoredType(t)).toEqual({ kind: "paper", examType: t });
+    expect(fromStoredType("question_bank")).toEqual({ kind: "question_bank", examType: null });
+    expect(fromStoredType("notes")).toEqual({ kind: "notes", examType: null });
+    expect(fromStoredType("something_new")).toEqual({ kind: "paper", examType: "other" });
   });
 });
 
@@ -56,7 +102,8 @@ describe("guessMeta", () => {
 
   it("reads file names", () => {
     expect(guessMeta("S12BLH31_model_exam_2025.pdf")).toMatchObject({ courseCode: "S12BLH31", year: 2025, examType: "model" });
-    expect(guessMeta("question bank - SMTB1302")).toMatchObject({ courseCode: "SMTB1302", examType: "question_bank" });
+    expect(guessMeta("question bank - SMTB1302")).toMatchObject({ courseCode: "SMTB1302", kind: "question_bank" });
+    expect(guessMeta("SCSB1303_unit3_notes.pdf")).toMatchObject({ courseCode: "SCSB1303", kind: "notes" });
   });
 
   it("guesses nothing from nothing", () => {
@@ -95,8 +142,9 @@ describe("files", () => {
   });
 
   it("builds a safe download name", () => {
-    expect(paperFileName({ courseCode: "SCSB1303", examType: "end_sem", year: 2024, month: 5 })).toBe("SCSB1303-end_sem-2024-05.pdf");
-    expect(paperFileName({ courseCode: "SCSB1303", examType: "sample", year: 2024, month: null })).toBe("SCSB1303-sample-2024.pdf");
+    expect(paperFileName({ courseCode: "SCSB1303", kind: "paper", examType: "end_sem", year: 2024, month: 5 })).toBe("SCSB1303-end_sem-2024-05.pdf");
+    expect(paperFileName({ courseCode: "SCSB1303", kind: "paper", examType: "sample", year: 2024, month: null })).toBe("SCSB1303-sample-2024.pdf");
+    expect(paperFileName({ courseCode: "SCSB1303", kind: "notes", examType: null, year: 2026, month: null })).toBe("SCSB1303-notes-2026.pdf");
   });
 });
 
