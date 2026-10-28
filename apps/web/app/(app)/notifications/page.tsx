@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { NoticeFeed } from "@/components/notices/NoticeFeed";
 import { BlackNotice } from "@/components/black/BlackNotice";
 import { FormulaNotice } from "@/components/notices/FormulaNotice";
+import { BackNotice } from "@/components/notices/BackNotice";
 
 export const metadata: Metadata = { title: "Notifications" };
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function NotificationsPage() {
         title="Notifications"
         description="Newest first."
       />
+      <BackNotice />
       <BlackNotice />
       <FormulaNotice />
       <NoticeFeed

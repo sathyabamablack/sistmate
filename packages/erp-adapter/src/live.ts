@@ -63,7 +63,7 @@ const USER_AGENT =
 const API_PATH = "erp/api/v1.0/";
 
 /** Login service that returns the ERP JWT for a register number + password. */
-export const DEFAULT_AUTH_BASE = "https://erp.sathyabama.ac.in/erp/api/v1.0/MasterStudent/login_stu_g";
+export const DEFAULT_AUTH_BASE = "https://sathyabama-erp-backend.sistmate-static.workers.dev";
 
 /** Shown when the login service can't be reached or falls over (not for wrong passwords). */
 export const ERP_DOWN_MESSAGE =
@@ -142,6 +142,22 @@ interface ApiEnvelope {
 function str(v: unknown): string {
   if (v == null) return "";
   return String(v).trim();
+}
+
+/** Decodes a JWT's payload without verifying it (we only read ids the ERP put there). */
+function jwtClaims(token: string): Record<string, unknown> | null {
+  const part = token.split(".")[1];
+  if (!part) return null;
+  try {
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const json = new TextDecoder().decode(
+      Uint8Array.from(atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, "=")), (c) => c.charCodeAt(0)),
+    );
+    const claims: unknown = JSON.parse(json);
+    return claims && typeof claims === "object" ? (claims as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Network failures are worth one more try; our own timeout or a caller abort are not. */
@@ -377,7 +393,13 @@ class LiveErpAdapter implements ErpAdapter {
           "Content-Type": "application/json",
           "User-Agent": USER_AGENT,
         },
-        body: JSON.stringify({ RegisterNumber: regNo, Password: creds.password }),
+        // The Workers service reads camelCase keys; older services read PascalCase.
+        body: JSON.stringify({
+          registerNumber: regNo,
+          password: creds.password,
+          RegisterNumber: regNo,
+          Password: creds.password,
+        }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch {
@@ -385,8 +407,13 @@ class LiveErpAdapter implements ErpAdapter {
       return { ok: false, error: ERP_DOWN_MESSAGE };
     }
 
-    const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-    this.onResponse?.({ url: loginUrl, body: { RegisterNumber: regNo }, response: json });
+    const outer = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    this.onResponse?.({ url: loginUrl, body: { RegisterNumber: regNo }, response: outer });
+
+    // The Workers service wraps the ERP's own envelope as `erp` and puts its
+    // message in `error`; older services return the envelope directly.
+    const json =
+      outer?.erp && typeof outer.erp === "object" ? (outer.erp as Record<string, unknown>) : outer;
 
     // A 5xx, or an error page instead of JSON, means the ERP is down, not a bad password.
     if (res.status >= 500 || (!res.ok && !json)) {
@@ -394,11 +421,12 @@ class LiveErpAdapter implements ErpAdapter {
     }
 
     if (!res.ok || json?.status === false) {
-      const msg = str(json?.message) || `Login service returned HTTP ${res.status}`;
+      const msg =
+        str(json?.message) || str(outer?.error) || `Login service returned HTTP ${res.status}`;
       return { ok: false, error: msg };
     }
 
-    if (!json) {
+    if (!json || !outer) {
       return { ok: false, error: ERP_DOWN_MESSAGE };
     }
 
@@ -406,6 +434,8 @@ class LiveErpAdapter implements ErpAdapter {
     const loginData = rd?.login as Record<string, unknown> | undefined;
     const token =
       str(loginData?.accessToken) ||
+      str(outer.accessToken) ||
+      str(outer.token) ||
       str(rd?.["Access-Token"]) ||
       str(rd?.token) ||
       str(rd?.accessToken) ||
@@ -417,7 +447,17 @@ class LiveErpAdapter implements ErpAdapter {
     }
 
     // Student logins return StudentId; IdentityId is the staff/admin field.
-    const studentId = str(loginData?.StudentId ?? loginData?.IdentityId) || undefined;
+    // The Workers service returns only `{ accessToken }`; the ERP JWT carries the ids.
+    const claims = jwtClaims(token);
+    const studentId =
+      str(
+        loginData?.StudentId ??
+          loginData?.IdentityId ??
+          outer.studentId ??
+          outer.StudentId ??
+          claims?.StudentId ??
+          claims?.IdentityId,
+      ) || undefined;
     const session: ErpSession = { token, regNo, studentId };
     return { ok: true, session: JSON.stringify(session) };
   }
