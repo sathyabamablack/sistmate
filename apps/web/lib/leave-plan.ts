@@ -20,6 +20,10 @@ import { timeToMinutes } from "./utils";
  * hour to the total and none to hours attended. Classes before the leave are not
  * counted, so attending them leaves you a little higher than shown. The app
  * cannot know holidays, so the student ticks those days off.
+ *
+ * When the ERP gives the semester's last day, days after it are not classes at all,
+ * and getting back to the threshold is checked against the classes actually left:
+ * "attend the next 7" is no use with 5 to go.
  */
 
 /** A leave longer than this is not planned day by day. */
@@ -48,6 +52,8 @@ export interface LeaveRange {
   days: LeaveDay[];
   /** the leave began before today, so the days already gone are not counted */
   clamped: boolean;
+  /** the leave runs past the semester's last day, so the days after it are not counted */
+  pastEnd: boolean;
   error: LeaveRangeError | null;
 }
 
@@ -57,8 +63,9 @@ export function leaveDays(
   from: string,
   to: string,
   now: { date: string; minutes: number },
+  semesterEnd?: string | null,
 ): LeaveRange {
-  const none = (error: LeaveRangeError): LeaveRange => ({ days: [], clamped: false, error });
+  const none = (error: LeaveRangeError): LeaveRange => ({ days: [], clamped: false, pastEnd: false, error });
   if (!isDateKey(from) || !isDateKey(to)) return none("invalid");
   if (to < from) return none("reversed");
   if (to < now.date) return none("past");
@@ -75,15 +82,31 @@ export function leaveDays(
     else byDay.set(s.day, [s]);
   }
 
+  const end = semesterEnd && isDateKey(semesterEnd) ? semesterEnd : null;
+  const pastEnd = end !== null && to > end;
   const days: LeaveDay[] = [];
   for (const date of span) {
+    if (end !== null && date > end) break;
     const day = timetableDay(date);
     const classes = (byDay.get(day) ?? []).filter(
       (s) => date !== now.date || timeToMinutes(s.start) > now.minutes,
     );
     if (classes.length > 0) days.push({ date, day, classes });
   }
-  return { days, clamped, error: null };
+  return { days, clamped, pastEnd, error: null };
+}
+
+/** Classes held per subject from `from` to `to`, inclusive, read off the weekly timetable. */
+export function classesBetween(slots: readonly PlanSlot[], from: string, to: string): Map<string, number> {
+  const out = new Map<string, number>();
+  if (!isDateKey(from) || !isDateKey(to) || to < from) return out;
+  const perDay = new Map<number, PlanSlot[]>();
+  for (const s of slots) perDay.set(s.day, [...(perDay.get(s.day) ?? []), s]);
+  // A semester is a few months; the cap only guards against a bad date.
+  for (const date of dateRange(from, to).slice(0, 400)) {
+    for (const c of perDay.get(timetableDay(date)) ?? []) out.set(c.code, (out.get(c.code) ?? 0) + 1);
+  }
+  return out;
 }
 
 export interface LeaveOutcome {
@@ -94,6 +117,12 @@ export interface LeaveOutcome {
   after: Projection;
   /** classes in a row to attend once back to reach the threshold again; 0 when it stays at or above */
   attendAfter: number;
+  /** classes of this subject left after the leave until the semester ends; null when the end is unknown */
+  left: number | null;
+  /** false when even every class left can't bring it back to the threshold this semester */
+  recoverable: boolean;
+  /** the highest it can end the semester at, attending every class left; null when the end is unknown */
+  best: number | null;
 }
 
 export interface LeavePlan {
@@ -105,6 +134,8 @@ export interface LeavePlan {
   subjects: LeaveOutcome[];
   /** how many of them end below the threshold */
   below: number;
+  /** of those, how many can't get back to it before the semester ends */
+  stuck: number;
 }
 
 /**
@@ -116,6 +147,8 @@ export function planLeave(
   days: readonly LeaveDay[],
   off: ReadonlySet<string>,
   threshold: number,
+  /** classes per subject between the day after the leave and the semester's last day */
+  remaining?: ReadonlyMap<string, number> | null,
 ): LeavePlan {
   const missedBy = new Map<string, number>();
   let counted = 0;
@@ -134,15 +167,28 @@ export function planLeave(
     const n = missedBy.get(s.code) ?? 0;
     if (n === 0) continue;
     const after = projectAttendance(s, n, 0, threshold);
+    const attendAfter = after.safe ? 0 : -after.margin;
+    const left = remaining ? (remaining.get(s.code) ?? 0) : null;
+    const best =
+      left === null ? null : after.total + left > 0 ? ((after.attended + left) / (after.total + left)) * 100 : 0;
     out.push({
       code: s.code,
       missed: n,
       now: projectAttendance(s, 0, 0, threshold),
       after,
-      attendAfter: after.safe ? 0 : -after.margin,
+      attendAfter,
+      left,
+      recoverable: left === null || attendAfter <= left,
+      best,
     });
   }
   out.sort((a, b) => a.after.percentage - b.after.percentage || a.code.localeCompare(b.code));
 
-  return { days: counted, missed, subjects: out, below: out.filter((o) => !o.after.safe).length };
+  return {
+    days: counted,
+    missed,
+    subjects: out,
+    below: out.filter((o) => !o.after.safe).length,
+    stuck: out.filter((o) => !o.recoverable).length,
+  };
 }

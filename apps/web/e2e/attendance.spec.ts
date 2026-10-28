@@ -36,7 +36,7 @@ test.describe("attendance: overview, records and planner", () => {
     // The OD tracker is one quiet link under the subjects.
     await expect(main.getByRole("region", { name: "By subject" }).getByRole("link", { name: /Track it/ })).toHaveAttribute(
       "href",
-      "/attendance/od",
+      "/od",
     );
 
     // Today's records open first: two separate verdicts from the ERP, each with its own label.

@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   CalendarCheck,
+  ClipboardCheck,
   ClipboardList,
   Calculator,
   GraduationCap,
@@ -9,9 +10,7 @@ import {
   Bell,
   BookOpen,
   FileText,
-  NotebookPen,
   Settings,
-  Heart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,6 +46,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: CalendarCheck,
     description: "Percentage per subject and hours you can skip",
     tab: true,
+  },
+  {
+    href: "/od",
+    group: "Academics",
+    label: "OD and leave",
+    icon: ClipboardCheck,
+    description: "Track ODs and medical leave until the ERP updates",
   },
   {
     href: "/timetable",
@@ -109,26 +115,11 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Past papers, notes and question banks",
   },
   {
-    href: "/prep",
-    group: "Learning",
-    label: "Exam prep",
-    icon: NotebookPen,
-    description: "What you need, revision and papers per subject",
-  },
-  {
     href: "/settings",
     group: "Account",
     label: "Settings",
     icon: Settings,
     description: "Appearance and grade template",
-  },
-  {
-    href: "/support",
-    group: "Account",
-    label: "Support",
-    icon: Heart,
-    description: "Chip in to keep the portal running",
-    skipInSheet: true,
   },
 ];
 

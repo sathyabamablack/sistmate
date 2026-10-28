@@ -13,7 +13,6 @@ import { HomeLayoutSettings } from "@/components/settings/HomeLayoutSettings";
 import { GuideSettings } from "@/components/settings/GuideSettings";
 import { PrefsProvider } from "@/components/settings/PrefsProvider";
 import { ResetSettings } from "@/components/settings/ResetSettings";
-import { SupportNudge } from "@/components/support/SupportNudge";
 
 export const metadata: Metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -63,10 +62,6 @@ export default async function SettingsPage() {
               </div>
             </Disclosure>
           </div>
-
-          <Section title="Support" id="support">
-            <SupportNudge lead="The portal is free and made by a student. Tips keep it online." action="Support the portal" />
-          </Section>
 
           <ResetSettings />
         </div>

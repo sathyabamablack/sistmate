@@ -7,6 +7,7 @@ import type {
   TimetableSlot,
 } from "@usp/core";
 import { formatPct } from "./attendance";
+import { extractCodes, type ErpSubject } from "./course-names";
 import { OD_FOLLOW_UP_DAYS } from "./od";
 import type { TimeFormat } from "./prefs";
 import { attendanceRisks, nextCountdowns } from "./risk";
@@ -353,7 +354,7 @@ export function odLine(od: OdCount | null | undefined): BriefLine | null {
     tone: followUp ? "warning" : "primary",
     text: `Check ${od.pending === 1 ? "an OD" : `${od.pending} ODs`} not updated in the ERP yet`,
     detail: followUp ? `The oldest has waited ${od.oldestDays} days, time to follow it up` : undefined,
-    href: "/attendance/od",
+    href: "/od",
   };
 }
 
@@ -364,8 +365,40 @@ const EXAM_DATE = new Intl.DateTimeFormat("en-IN", {
   month: "short",
 });
 
+const words = (s: string) =>
+  ` ${s
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()} `;
+
 /**
- * The next exam within two weeks, linking to its prep page. It carries the same countdown
+ * The subject an exam event is about, or null when it can't be told. A subject code in the
+ * title wins; else the course name or title naming one subject in whole words (the longest,
+ * so "Operating Systems Lab" beats "Operating Systems"). Two equally good matches give null:
+ * better to say nothing than to point at someone else's exam.
+ */
+export function examSubject(event: Pick<CalendarEvent, "title" | "courseName">, subjects: ErpSubject[]): ErpSubject | null {
+  const codes = extractCodes(event.title, event.courseName);
+  const byCode = subjects.filter((s) => codes.includes(s.code.toUpperCase()));
+  if (byCode.length > 0) return byCode.length === 1 ? byCode[0]! : null;
+
+  const course = words(event.courseName ?? "");
+  const exact = subjects.filter((s) => course.trim() !== "" && words(s.title) === course);
+  if (exact.length > 0) return exact.length === 1 ? exact[0]! : null;
+
+  const text = words(`${event.title} ${event.courseName ?? ""}`);
+  const named = subjects
+    .map((s) => ({ s, w: words(s.title) }))
+    .filter(({ w }) => w.trim().length >= 6 && text.includes(w))
+    .sort((a, b) => b.w.length - a.w.length);
+  if (named.length === 0) return null;
+  if (named.length > 1 && named[1]!.w.length === named[0]!.w.length) return null;
+  return named[0]!.s;
+}
+
+/**
+ * The next exam within two weeks, linking to that subject's question papers. It carries the same countdown
  * as the dashboard's exam chip, which the page then leaves out.
  */
 export function examLine(
@@ -391,7 +424,7 @@ export function examLine(
       exam.days <= 1
         ? `${exam.days === 0 ? "Today" : "Tomorrow"}${time}`
         : `In ${exam.days} days, ${p.weekday} ${p.day} ${p.month}`,
-    href: code ? `/prep/${encodeURIComponent(code)}` : "/prep",
+    href: code ? `/papers?q=${encodeURIComponent(code)}` : "/papers",
   };
 }
 
@@ -417,7 +450,7 @@ export interface BriefInput {
   memory: BriefMemory;
   /** Today is a holiday on the ERP: the timetable still lists classes, but none will run. */
   holiday?: boolean;
-  /** The subject code an exam is for, for its prep page. */
+  /** The subject code an exam is for, for its papers link. */
   examCode?: (event: CalendarEvent) => string | null;
 }
 

@@ -7,7 +7,6 @@ import { CreditCell } from "@/components/results/CreditCell";
 import { GpaTrend } from "@/components/results/GpaTrend";
 import { CgpaHeadline } from "@/components/results/CgpaHeadline";
 import { HowCalculated } from "@/components/results/HowCalculated";
-import { SupportNudge } from "@/components/support/SupportNudge";
 import type { Arrear } from "@/lib/arrears";
 import { officialCourse, type GradingSettings } from "@/lib/grading-presets";
 
@@ -66,7 +65,6 @@ export function GradedResults({
         latestGpa={latest?.gpa ?? null}
         latestSemester={latest?.semester}
         estimated={estimated}
-        footer={arrears.length === 0 ? <SupportNudge lead="Glad this helped? Free, and made by a student." /> : undefined}
       />
 
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">

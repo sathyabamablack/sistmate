@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { attendanceStats, type TimetableSlot } from "@usp/core";
 import { buildWeekPlan } from "../week-plan";
-import { MAX_LEAVE_DAYS, defaultLeave, leaveDays, planLeave, timetableDay } from "../leave-plan";
+import { MAX_LEAVE_DAYS, classesBetween, defaultLeave, leaveDays, planLeave, timetableDay } from "../leave-plan";
 
 const slot = (day: number, startTime: string, courseCode: string): TimetableSlot => ({
   day,
@@ -66,7 +66,7 @@ describe("leaveDays", () => {
 
   it("is empty for a weekend with no classes", () => {
     const r = leaveDays(SLOTS, "2026-10-31", "2026-11-01", morning("2026-10-28"));
-    expect(r).toEqual({ days: [], clamped: false, error: null });
+    expect(r).toEqual({ days: [], clamped: false, pastEnd: false, error: null });
   });
 
   it("explains a range it cannot plan", () => {
@@ -124,7 +124,7 @@ describe("planLeave", () => {
     expect(plan.missed).toBe(3);
     expect(plan.subjects.find((s) => s.code === "A")!.missed).toBe(1);
     const none = planLeave(SUBJECTS, week, new Set(week.map((d) => d.date)), 80);
-    expect(none).toEqual({ days: 0, missed: 0, subjects: [], below: 0 });
+    expect(none).toEqual({ days: 0, missed: 0, subjects: [], below: 0, stuck: 0 });
   });
 
   it("counts classes of subjects with no record but has no figure for them", () => {
@@ -136,5 +136,42 @@ describe("planLeave", () => {
   it("follows the student's threshold", () => {
     const plan = planLeave(SUBJECTS, week, new Set(), 75);
     expect(plan.subjects.find((s) => s.code === "A")!.after.safe).toBe(true);
+  });
+});
+
+describe("semester end", () => {
+  it("stops counting class days after the semester's last day", () => {
+    // Mon 26 Oct to Fri 30 Oct, but the semester ends Wed 28 Oct.
+    const r = leaveDays(SLOTS, MON, "2026-10-30", morning(MON), "2026-10-28");
+    expect(r.days.map((d) => d.date)).toEqual(["2026-10-26", "2026-10-28"]);
+    expect(r.pastEnd).toBe(true);
+  });
+
+  it("counts the classes left per subject", () => {
+    // Tue 27 Oct to Mon 2 Nov: Wed (A), Fri (B, C), Mon (two A hours, B): an hour is a class, as when missing them.
+    expect(Object.fromEntries(classesBetween(SLOTS, "2026-10-27", "2026-11-02"))).toEqual({ A: 3, B: 2, C: 1 });
+    expect(classesBetween(SLOTS, "2026-11-03", "2026-11-02").size).toBe(0);
+  });
+
+  it("says when getting back to the threshold no longer fits in the semester", () => {
+    // 16 of 20 is 80%; missing 3 hours of A drops it below and needs more than 1 to recover.
+    const subjects = [{ code: "A", attended: 16, total: 20 }];
+    const days = leaveDays(SLOTS, MON, "2026-10-28", morning(MON)).days; // A: 2 hours Mon + 1 Wed
+    const enough = planLeave(subjects, days, new Set(), 80, new Map([["A", 50]]));
+    expect(enough.subjects[0]).toMatchObject({ recoverable: true, left: 50 });
+    expect(enough.stuck).toBe(0);
+
+    const tight = planLeave(subjects, days, new Set(), 80, new Map([["A", 1]]));
+    const o = tight.subjects[0]!;
+    expect(o.attendAfter).toBeGreaterThan(1);
+    expect(o).toMatchObject({ recoverable: false, left: 1 });
+    expect(o.best).toBeCloseTo(((o.after.attended + 1) / (o.after.total + 1)) * 100);
+    expect(tight.stuck).toBe(1);
+  });
+
+  it("assumes recovery is possible when the semester's end is unknown", () => {
+    const days = leaveDays(SLOTS, MON, "2026-10-28", morning(MON)).days;
+    const o = planLeave([{ code: "A", attended: 16, total: 20 }], days, new Set(), 80).subjects[0]!;
+    expect(o).toMatchObject({ left: null, recoverable: true, best: null });
   });
 });

@@ -5,12 +5,49 @@ import { AlertCircle } from "lucide-react";
 import { addDays, type PlanSubject } from "@usp/core";
 import { Badge } from "@/components/ui/Badge";
 import { fieldClass, labelClass } from "@/components/ui/field";
-import { attendanceAdvice } from "@/lib/attendance";
+import { attendanceAdvice, formatPct } from "@/lib/attendance";
 import { formatDay } from "@/lib/attendance-days";
-import { MAX_LEAVE_DAYS, defaultLeave, leaveDays, planLeave, type LeaveRangeError } from "@/lib/leave-plan";
+import {
+  MAX_LEAVE_DAYS,
+  classesBetween,
+  defaultLeave,
+  leaveDays,
+  planLeave,
+  type LeaveRangeError,
+} from "@/lib/leave-plan";
 import type { PlanSlot } from "@/lib/week-plan";
 import { cn } from "@/lib/utils";
 import { OutcomeRow } from "./Outcome";
+
+/** The last day of classes the student typed, remembered in this browser (the ERP's own dates aren't the semester's). */
+const END_KEY = "usp-leave-end-v1";
+// A module-level copy keeps it working when storage is blocked.
+let endMemory: string | null = null;
+const endListeners = new Set<() => void>();
+const readEnd = () => {
+  if (endMemory !== null) return endMemory;
+  try {
+    return localStorage.getItem(END_KEY) ?? "";
+  } catch {
+    return "";
+  }
+};
+const subscribeEnd = (listener: () => void) => {
+  endListeners.add(listener);
+  return () => {
+    endListeners.delete(listener);
+  };
+};
+function saveEnd(next: string) {
+  endMemory = next;
+  try {
+    if (next) localStorage.setItem(END_KEY, next);
+    else localStorage.removeItem(END_KEY);
+  } catch {
+    /* kept in memory for this visit */
+  }
+  endListeners.forEach((l) => l());
+}
 
 const classesText = (n: number) => `${n} ${n === 1 ? "class" : "classes"}`;
 const daysText = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
@@ -48,14 +85,22 @@ export function LeavePlanner({
   const [to, setTo] = React.useState(() => defaultLeave(today).to);
   const [off, setOff] = React.useState<ReadonlySet<string>>(() => new Set());
   const uid = React.useId();
+  // The last day of classes, when the student gives it: caps the leave and the catching up.
+  const lastDay = React.useSyncExternalStore(subscribeEnd, readEnd, () => "");
+  const semesterEnd = lastDay && lastDay >= today ? lastDay : null;
 
   const range = React.useMemo(
-    () => leaveDays(slots, from, to, { date: today, minutes }),
-    [slots, from, to, today, minutes],
+    () => leaveDays(slots, from, to, { date: today, minutes }, semesterEnd),
+    [slots, from, to, today, minutes, semesterEnd],
+  );
+  // Classes left once back, up to the semester's last day: what recovery has to fit into.
+  const remaining = React.useMemo(
+    () => (semesterEnd && !range.error && to ? classesBetween(slots, addDays(to, 1), semesterEnd) : null),
+    [slots, to, semesterEnd, range.error],
   );
   const plan = React.useMemo(
-    () => planLeave(subjects, range.days, off, threshold),
-    [subjects, range.days, off, threshold],
+    () => planLeave(subjects, range.days, off, threshold, remaining),
+    [subjects, range.days, off, threshold, remaining],
   );
   const titles = React.useMemo(() => new Map(subjects.map((s) => [s.code, s.title])), [subjects]);
 
@@ -75,7 +120,9 @@ export function LeavePlanner({
   }
 
   const unaffected = subjects.length - plan.subjects.length;
-  const below = plan.subjects.filter((s) => s.attendAfter > 0);
+  const below = plan.subjects.filter((s) => s.attendAfter > 0 && s.recoverable);
+  const stuck = plan.subjects.filter((s) => !s.recoverable);
+  const leftText = (n: number) => (n === 0 ? "no classes left" : `only ${classesText(n)} left`);
   const summaryText = range.error
     ? RANGE_ERROR[range.error]
     : range.days.length === 0
@@ -85,7 +132,9 @@ export function LeavePlanner({
         : `Missing ${classesText(plan.missed)} over ${daysText(plan.days)}. ${
             plan.below === 0
               ? `Every subject stays at or above ${threshold}%.`
-              : `${plan.below} ${plan.below === 1 ? "subject ends" : "subjects end"} below ${threshold}%.`
+              : `${plan.below} ${plan.below === 1 ? "subject ends" : "subjects end"} below ${threshold}%${
+                  plan.stuck > 0 ? `, and ${plan.stuck} can't get back to it before classes end` : ""
+                }.`
           }`;
 
   return (
@@ -124,6 +173,23 @@ export function LeavePlanner({
                 className={cn(fieldClass, "mt-1.5")}
               />
             </div>
+          </div>
+
+          <div className="sm:max-w-md">
+            <label htmlFor={`${uid}-end`} className={cn(labelClass, "block")}>
+              Last day of classes <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <input
+              id={`${uid}-end`}
+              type="date"
+              value={lastDay}
+              min={today}
+              onChange={(e) => saveEnd(e.target.value)}
+              className={cn(fieldClass, "mt-1.5 sm:max-w-[calc(50%-0.375rem)]")}
+            />
+            <p className="mt-1 text-small text-muted-foreground">
+              Add it to check you can still catch up before classes end.
+            </p>
           </div>
 
           {range.days.length > 0 ? (
@@ -181,6 +247,23 @@ export function LeavePlanner({
             {summaryText}
           </p>
 
+          {stuck.length > 0 ? (
+            <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-danger/8 p-3 ring-1 ring-danger/25">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
+              <div className="min-w-0 text-small text-foreground">
+                <p className="font-semibold">Can&apos;t get back to {threshold}% before classes end</p>
+                <ul className="mt-1 space-y-0.5">
+                  {stuck.map((s) => (
+                    <li key={s.code}>
+                      {titles.get(s.code) ?? s.code}: needs {classesText(s.attendAfter)}, {leftText(s.left ?? 0)}.
+                      {s.best !== null ? ` ${formatPct(s.best)} at most.` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : null}
+
           {below.length > 0 ? (
             <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-danger/8 p-3 ring-1 ring-danger/25">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
@@ -194,6 +277,7 @@ export function LeavePlanner({
                         {s.attendAfter === 1
                           ? `Attend the next ${title} class`
                           : `Attend the next ${s.attendAfter} ${title} classes`}
+                        {s.left !== null ? ` (${s.left} left before classes end)` : ""}
                       </li>
                     );
                   })}
@@ -206,6 +290,11 @@ export function LeavePlanner({
             <ul className="mt-2 divide-y divide-border border-b border-border">
               {plan.subjects.map((o) => {
                 const advice = attendanceAdvice(o.after.attended, o.after.total, threshold);
+                const badge = o.recoverable ? (
+                  <Badge variant={advice.tone === "none" ? "muted" : advice.tone}>{advice.short}</Badge>
+                ) : (
+                  <Badge variant="danger">{o.best !== null ? `${formatPct(o.best)} at most` : "Can't recover"}</Badge>
+                );
                 return (
                   <OutcomeRow
                     key={o.code}
@@ -213,9 +302,7 @@ export function LeavePlanner({
                     detail={`${o.code}, misses ${o.missed}`}
                     now={o.now}
                     after={o.after}
-                    badge={
-                      <Badge variant={advice.tone === "none" ? "muted" : advice.tone}>{advice.short}</Badge>
-                    }
+                    badge={badge}
                     testId={`leave-${o.code}`}
                   />
                 );
@@ -229,6 +316,11 @@ export function LeavePlanner({
                 ? `${unaffected} other ${unaffected === 1 ? "subject has" : "subjects have"} no classes on these days. `
                 : ""}
               Classes before you leave aren&apos;t counted, so attending them leaves you a little higher.
+              {semesterEnd
+                ? range.pastEnd
+                  ? ` Classes end ${formatDay(semesterEnd)}, so days after it aren't counted.`
+                  : ` Classes left are counted up to your last day of classes, ${formatDay(semesterEnd)}.`
+                : null}
             </p>
           ) : null}
         </div>

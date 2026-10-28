@@ -20,7 +20,6 @@ export default function robots(): MetadataRoute.Robots {
         "/notifications",
         "/results",
         "/settings",
-        "/support",
         "/timetable",
       ],
     },

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { addDays } from "@usp/core";
-import Link from "@/components/ui/IntentLink";
 import { HOURLY_DAYS, requireDashboardData } from "@/lib/data";
 import { getPrefs } from "@/lib/prefs-server";
 import { campusToday } from "@/lib/attendance-range";
@@ -23,20 +22,8 @@ export default async function OdPage() {
 
   return (
     <div>
-      <nav aria-label="Breadcrumb" className="mb-2 text-small text-muted-foreground">
-        <Link
-          href="/attendance"
-          className="focusable inline-flex min-h-11 items-center rounded-sm hover:text-foreground lg:min-h-0"
-        >
-          Attendance
-        </Link>
-        <span aria-hidden className="mx-2">
-          /
-        </span>
-        <span aria-current="page">OD and leave</span>
-      </nav>
       <PageHeader
-        title="OD and medical leave"
+        title="OD and leave"
         description="Log the hours you missed on duty or on leave. Each visit checks whether the ERP has marked them present yet."
       />
       <OdTracker

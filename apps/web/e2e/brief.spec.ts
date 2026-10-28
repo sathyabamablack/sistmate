@@ -4,7 +4,7 @@ import { BRIEF_COOKIE, campusDayKey, markKey, parseBriefMemory, serializeBriefMe
 
 /**
  * The dashboard's "To do today" brief (lib/brief.ts). The mock's CIA-2 exam (Operating
- * Systems) is always 11 days out, so the brief always has its prep line. The attendance
+ * Systems) is always 11 days out, so the brief always has its exam line. The attendance
  * line depends on the real weekday and time, so it is only checked when it shows.
  */
 
@@ -24,12 +24,12 @@ async function writeMemory(context: BrowserContext, baseURL: string | undefined,
 }
 
 test.describe("morning brief", () => {
-  test("carries the exam countdown with a link to prepare, in place of the chip", async ({
+  test("carries the exam countdown with a link to the subject's papers, in place of the chip", async ({
     loggedInPage: page,
   }) => {
     await page.goto("/");
     const exam = brief(page).getByRole("link", { name: /^Prepare for CIA-2 Examination: Operating Systems/ });
-    await expect(exam).toHaveAttribute("href", "/prep/SCSA5102");
+    await expect(exam).toHaveAttribute("href", "/papers?q=SCSA5102");
     await expect(exam).toContainText(/In \d+ days, \w{3} \d{1,2} \w{3}/);
     // The countdown shows once: the chip steps aside while the brief has it.
     await expect(page.getByRole("main").getByRole("list", { name: "Coming up" })).toHaveCount(0);
@@ -140,7 +140,7 @@ test.describe("morning brief", () => {
 
     await page.goto("/");
     const od = brief(page).getByRole("link", { name: /^Check an OD not updated in the ERP yet/ });
-    await expect(od).toHaveAttribute("href", "/attendance/od");
+    await expect(od).toHaveAttribute("href", "/od");
     await expect(od).toContainText(/The oldest has waited \d+ days, time to follow it up/);
     await expect.poll(async () => (await readMemory(context))?.od?.pending).toBe(1);
 

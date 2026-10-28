@@ -3,7 +3,6 @@ import Link from "@/components/ui/IntentLink";
 import { FaqList, PublicShell } from "@/components/public/PublicShell";
 import { GpaCalculator } from "@/components/public/GpaCalculator";
 import { JsonLd, breadcrumbSchema, faqSchema } from "@/components/seo/JsonLd";
-import { SupportNudge } from "@/components/support/SupportNudge";
 import { buttonClass } from "@/components/ui/Button";
 import { OG_IMAGES, SITE_URL } from "@/lib/site";
 
@@ -62,7 +61,6 @@ export default function CgpaCalculatorPage() {
 
       <div className="mt-10">
         <GpaCalculator />
-        <SupportNudge href="/donate" className="mt-5" />
       </div>
 
       <section aria-labelledby="how-heading" className="mt-16 max-w-2xl">

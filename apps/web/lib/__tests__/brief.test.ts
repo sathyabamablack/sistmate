@@ -17,6 +17,7 @@ import {
   shortHash,
   type BriefLine,
   type BriefMemory,
+  examSubject,
 } from "../brief";
 
 /** Wednesday 28 Oct 2026 (timetable day 2), at a campus time. */
@@ -258,7 +259,7 @@ describe("odLine", () => {
   it("counts ODs still absent in the ERP, and nudges once one has waited a week", () => {
     expect(odLine({ pending: 0, oldestDays: null })).toBeNull();
     expect(odLine(null)).toBeNull();
-    expect(odLine({ pending: 1, oldestDays: 2 })).toMatchObject({ text: "Check an OD not updated in the ERP yet", href: "/attendance/od" });
+    expect(odLine({ pending: 1, oldestDays: 2 })).toMatchObject({ text: "Check an OD not updated in the ERP yet", href: "/od" });
     const late = odLine({ pending: 2, oldestDays: 9 });
     expect(late?.text).toBe("Check 2 ODs not updated in the ERP yet");
     expect(late?.detail).toBe("The oldest has waited 9 days, time to follow it up");
@@ -269,19 +270,19 @@ describe("odLine", () => {
 describe("examLine", () => {
   const exam = (date: string) => [event("cia2", "exam", date, "CIA-2 Examination: Operating Systems", { courseName: "Operating Systems" })];
 
-  it("links an exam within two weeks to its prep page, with the countdown", () => {
+  it("links an exam within two weeks to its subject's papers, with the countdown", () => {
     const line = examLine(exam("2026-11-08T10:00:00+05:30"), wed("08:00"), { examCode: () => "SCSA5102" });
     expect(line).toMatchObject({
       kind: "exam",
       text: "Prepare for CIA-2 Examination: Operating Systems",
       detail: "In 11 days, Sun 8 Nov",
-      href: "/prep/SCSA5102",
+      href: "/papers?q=SCSA5102",
       tone: "primary",
     });
   });
 
-  it("says today or tomorrow with the time, and falls back to the prep list", () => {
-    expect(examLine(exam("2026-10-28T14:00:00+05:30"), wed("08:00"))).toMatchObject({ detail: "Today at 2:00 pm", href: "/prep", tone: "warning" });
+  it("says today or tomorrow with the time, and falls back to all papers", () => {
+    expect(examLine(exam("2026-10-28T14:00:00+05:30"), wed("08:00"))).toMatchObject({ detail: "Today at 2:00 pm", href: "/papers", tone: "warning" });
     expect(examLine(exam("2026-10-29T10:00:00+05:30"), wed("08:00"))?.detail).toBe("Tomorrow at 10:00 am");
   });
 
@@ -364,5 +365,27 @@ describe("buildBrief", () => {
     const quiet = buildBrief({ ...base, data: { ...data, attendance: [CN], assignments: [], events: [] } });
     expect(quiet.lines).toEqual([]);
     expect(quiet.examInBrief).toBe(false);
+  });
+});
+
+describe("examSubject", () => {
+  const erp = [
+    { code: "SCSA5102", title: "Operating Systems" },
+    { code: "SCSB2401", title: "Operating Systems Lab" },
+    { code: "SCSA5101", title: "Computer Networks" },
+  ];
+
+  it("matches by code, course name or the subject's name in the title", () => {
+    expect(examSubject({ title: "SCSA5101 model exam" }, erp)?.code).toBe("SCSA5101");
+    expect(examSubject({ title: "CIA-2", courseName: "Operating Systems" }, erp)?.code).toBe("SCSA5102");
+    expect(examSubject({ title: "CIA-2 Examination: Operating Systems" }, erp)?.code).toBe("SCSA5102");
+    // The longer name wins: this is the lab's exam, not the theory paper's.
+    expect(examSubject({ title: "Operating Systems Lab practical exam" }, erp)?.code).toBe("SCSB2401");
+  });
+
+  it("says nothing rather than guess", () => {
+    expect(examSubject({ title: "End semester examinations begin" }, erp)).toBeNull();
+    expect(examSubject({ title: "SCSA5101 and SCSA5102 combined test" }, erp)).toBeNull();
+    expect(examSubject({ title: "Networks quiz" }, erp)).toBeNull();
   });
 });

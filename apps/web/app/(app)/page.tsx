@@ -18,8 +18,7 @@ import { TodayAttendanceChip } from "@/components/dashboard/TodayAttendanceChip"
 import { attendanceAdvice, attendanceTone, formatPct } from "@/lib/attendance";
 import { todayVerdicts } from "@/lib/attendance-days";
 import { arrearsLabel, computeArrears, standingArrearsCount, type Arrear } from "@/lib/arrears";
-import { BRIEF_COOKIE, buildBrief, parseBriefMemory } from "@/lib/brief";
-import { examSubject } from "@/lib/prep";
+import { BRIEF_COOKIE, buildBrief, examSubject, parseBriefMemory } from "@/lib/brief";
 import { attendanceRisks, nextCountdowns } from "@/lib/risk";
 import {
   CAMPUS_TZ,

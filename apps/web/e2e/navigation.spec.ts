@@ -1,7 +1,7 @@
 import { test, expect, NAV_PAGES, navigateTo, pageHeading, waitForHydration } from "./helpers";
 
 test.describe("navigation", () => {
-  // Pages like Exam prep call the papers Worker from the browser, and the context-wide
+  // Pages like Question papers call the papers Worker from the browser, and the context-wide
   // X-Forwarded-For header fails its CORS preflight (real browsers never send it). Logins set
   // their own header (helpers.ts apiLogin), so the throttle still sees a distinct client.
   test.use({ extraHTTPHeaders: {} });

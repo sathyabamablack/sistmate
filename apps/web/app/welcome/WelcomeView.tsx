@@ -319,11 +319,6 @@ export function WelcomeView({ signedIn }: { signedIn: boolean }) {
               </li>
             ))}
             <li>
-              <Link href="/donate" className={cn(textLink, "inline-flex min-h-11 items-center lg:min-h-0")}>
-                Support
-              </Link>
-            </li>
-            <li>
               <Link href="/install" className={cn(textLink, "inline-flex min-h-11 items-center lg:min-h-0")}>
                 Add to home screen
               </Link>

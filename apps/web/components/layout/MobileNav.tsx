@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/ui/IntentLink";
 import { usePathname } from "next/navigation";
-import { ExternalLink, Heart, Menu } from "lucide-react";
+import { ExternalLink, Menu } from "lucide-react";
 import { TAB_ITEMS, isActivePath, navTourId } from "./nav";
 import { SheetLinks } from "./NavLinks";
 import { EXTERNAL_LINK_PROPS, safeHttpUrl } from "./external-links";
@@ -95,18 +95,6 @@ export function MobileNav({
 
       <DialogContent placement="bottom" className="p-4 pt-5 lg:hidden" aria-describedby={undefined}>
         <DialogTitle className="px-2 font-display text-heading font-semibold">Navigation</DialogTitle>
-        <Link
-          href="/support"
-          onClick={() => onMoreOpenChange(false)}
-          aria-current={isActivePath(pathname, "/support") ? "page" : undefined}
-          className="mt-3 flex min-h-14 items-center gap-3 rounded-lg bg-accent px-3 py-2 text-accent-foreground focusable"
-        >
-          <Heart className="h-[18px] w-[18px] shrink-0" aria-hidden />
-          <span className="min-w-0">
-            <span className="block text-body font-semibold">Support the portal</span>
-            <span className="block text-small opacity-80">Free, and made by a student. Chip in.</span>
-          </span>
-        </Link>
         <nav aria-label="All pages" className="mt-4">
           <SheetLinks onNavigate={() => onMoreOpenChange(false)} />
         </nav>

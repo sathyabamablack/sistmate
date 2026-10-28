@@ -209,7 +209,7 @@ export default async function AttendancePage({
           <Section id="subjects" title="By subject">
             <AttendanceTable variant="full" subjects={subjects} threshold={threshold} />
             <Link
-              href="/attendance/od"
+              href="/od"
               className="focusable mt-2 inline-flex min-h-11 items-center gap-1 rounded-md text-small text-muted-foreground hover:text-foreground lg:min-h-9"
             >
               OD or medical leave not updated in the ERP?

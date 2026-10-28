@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import { test, expect, pageHeading, waitForHydration } from "./helpers";
 
 /**
- * OD and medical leave tracker (/attendance/od). The mock ERP marks whole days absent
+ * OD and medical leave tracker (/od). The mock ERP marks whole days absent
  * (the first class day on or after the 6th and the 20th of each month) and everything
  * else present, so the days used here are found through the hour-wise endpoint
  * instead of being fixed dates.
@@ -89,8 +89,8 @@ test.describe("OD tracker", () => {
     const label = dayLabel(absent.date);
     const waited = daysSince(absent.date);
 
-    await page.goto("/attendance/od");
-    await expect(pageHeading(page, "OD and medical leave")).toBeVisible();
+    await page.goto("/od");
+    await expect(pageHeading(page, "OD and leave")).toBeVisible();
     await waitForHydration(page);
     const main = page.getByRole("main");
     await expect(main.getByText("No OD or leave logged")).toBeVisible();
@@ -169,7 +169,7 @@ test.describe("OD tracker", () => {
 
   test("an entry for a day the ERP shows present reads as updated", async ({ loggedInPage: page }) => {
     const present = (await recentDays(page)).filter((d) => d.absent === 0 && d.notGiven === 0 && d.present > 0).at(-1)!;
-    await page.goto("/attendance/od");
+    await page.goto("/od");
     await waitForHydration(page);
     const main = page.getByRole("main");
     await main.getByRole("button", { name: "Log an OD or leave" }).click();
@@ -198,7 +198,7 @@ test.describe("OD tracker", () => {
       );
     }, old.date);
     const asked = page.waitForRequest((r) => r.url().includes("/api/attendance/hourly?"));
-    await page.goto("/attendance/od");
+    await page.goto("/od");
     expect(new URL((await asked).url()).searchParams.get("from")).toBe(old.date);
     const entry = page.getByTestId("od-entry").filter({ hasText: "Football" });
     await expect(entry.getByText(`Not updated yet, ${daysSince(old.date)} days`)).toBeVisible();

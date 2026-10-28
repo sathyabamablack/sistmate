@@ -101,6 +101,19 @@ describe("clampRange", () => {
   });
 });
 
+describe("parseHourlyRow: double-counted days", () => {
+  it("keeps a day where the ERP counts more hours present than the day has", () => {
+    // Seen live: a lab's hours counted twice, so "not given" comes back negative.
+    const day = parseHourlyRow({ AttendanceDate: "21/10/2026", totalHours: 5, Present: 8, Absent: 0, AttNotGiven: -3 });
+    expect(day).toEqual({ date: "2026-10-21", totalHours: 5, present: 5, absent: 0, notGiven: 0 });
+  });
+
+  it("keeps the absences the ERP marked and caps the rest at the day's total", () => {
+    const day = parseHourlyRow({ AttendanceDate: "20/10/2026", totalHours: 5, Present: 6, Absent: 2, AttNotGiven: -3 });
+    expect(day).toEqual({ date: "2026-10-20", totalHours: 5, present: 3, absent: 2, notGiven: 0 });
+  });
+});
+
 describe("parseHourlyRows", () => {
   it("reads counts as numbers or numeric strings and drops unreadable rows", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);

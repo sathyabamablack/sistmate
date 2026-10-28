@@ -12,7 +12,7 @@ import { formatDay, periodStarts } from "./attendance-days";
 import { rangeDays, type DateRange } from "./attendance-range";
 
 /**
- * OD and medical leave tracker (/attendance/od).
+ * OD and medical leave tracker (/od).
  *
  * A student logs the hours they missed for an OD or a medical leave. The ERP marks
  * those hours absent and takes weeks to change them after the OD form is approved,

@@ -6,6 +6,7 @@ export { expect };
 /** Pages reachable from the sidebar / mobile drawer, with their `<h1>`. */
 export const NAV_PAGES = [
   { label: "Attendance", path: "/attendance" },
+  { label: "OD and leave", path: "/od" },
   { label: "Marks", path: "/marks" },
   { label: "Results", path: "/results" },
   { label: "CGPA planner", path: "/calculator" },
@@ -13,7 +14,6 @@ export const NAV_PAGES = [
   { label: "Fees", path: "/fees" },
   { label: "Notifications", path: "/notifications" },
   { label: "Courses", path: "/courses" },
-  { label: "Exam prep", path: "/prep" },
 ] as const;
 
 const rand = (max: number) => Math.floor(Math.random() * max);

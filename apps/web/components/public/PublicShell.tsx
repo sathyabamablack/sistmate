@@ -67,11 +67,6 @@ export function PublicShell({ children }: { children: ReactNode }) {
                 About the portal
               </Link>
             </li>
-            <li>
-              <Link href="/donate" className={cn(linkClass, "inline-flex min-h-11 items-center lg:min-h-0")}>
-                Support
-              </Link>
-            </li>
             <li className="flex items-center">
               <BlackDot />
             </li>

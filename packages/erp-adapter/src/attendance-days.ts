@@ -197,7 +197,10 @@ export function parseHourlyRow(row: unknown): HourlyDay | null {
   const present = cell(field(row, "Present", "PresentHours"));
   const absent = cell(field(row, "Absent", "AbsentHours"));
   const notGivenRaw = field(row, "AttNotGiven", "AttendanceNotGiven", "NotGiven");
-  const notGiven = cell(notGivenRaw);
+  // The ERP reports "not given" as total - present - absent, so a day where it counts a
+  // lab's hours twice comes back as e.g. 5 total, 8 present, -3 not given. Nothing is
+  // waiting to be entered then.
+  const notGiven = cell(typeof notGivenRaw === "number" && notGivenRaw < 0 ? 0 : notGivenRaw);
   const parts = [present, absent, notGiven];
   if (parts.some((c) => c.kind === "bad") || total.kind === "bad" || total.kind === "list") return null;
   if (parts.every((c) => c.kind === "empty") && total.kind === "empty") return null;
@@ -215,8 +218,10 @@ export function parseHourlyRow(row: unknown): HourlyDay | null {
   const listMode = anyList || (!anyNumber && totalCount !== null && countSum !== totalCount && listReadingFits());
 
   if (!listMode) {
-    const p = asCount(present);
     const a = asCount(absent);
+    // More hours present than the day has (a double-counted lab): absences are what the ERP
+    // marked, the rest of the day was present.
+    const p = totalCount !== null ? Math.min(asCount(present), Math.max(0, totalCount - a)) : asCount(present);
     const explicitNotGiven = notGivenRaw !== undefined;
     let n = asCount(notGiven);
     let totalHours = totalCount ?? p + a + n;
@@ -265,6 +270,12 @@ export function parseHourlyRows(input: unknown, range?: { from: string; to: stri
     if (range && (day.date < range.from || day.date > range.to)) continue;
     byDate.set(day.date, day);
   }
-  if (dropped > 0) devWarn(`hour-wise attendance: skipped ${dropped} row(s) that could not be read`);
+  if (dropped > 0) {
+    // Only the hour fields of the first unreadable row: enough to see a new ERP format, nothing personal.
+    const sample = list.find((row) => !parseHourlyRow(row));
+    const keys = ["AttendanceDate", "Date", "totalHours", "TotalHour", "Total", "Present", "PresentHours", "Absent", "AbsentHours", "AttNotGiven", "AttendanceNotGiven", "NotGiven"];
+    const shown = isRow(sample) ? Object.fromEntries(keys.filter((k) => k in sample).map((k) => [k, sample[k]])) : sample;
+    devWarn(`hour-wise attendance: skipped ${dropped} row(s) that could not be read, e.g. ${JSON.stringify(shown)}; fields: ${isRow(sample) ? Object.keys(sample).join(",") : typeof sample}`);
+  }
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
