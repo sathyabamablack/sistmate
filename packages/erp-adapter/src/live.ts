@@ -65,6 +65,10 @@ const API_PATH = "erp/api/v1.0/";
 /** Login service that returns the ERP JWT for a register number + password. */
 export const DEFAULT_AUTH_BASE = "https://erp.sathyabama.ac.in/erp/api/v1.0/MasterStudent/login_stu_g";
 
+/** Shown when the login service can't be reached or falls over (not for wrong passwords). */
+export const ERP_DOWN_MESSAGE =
+  "Guys, Sathyabama ERP is down again 💀 Attendance is compulsory, assignments are mandatory, fees are non-refundable, but the server is on permanent vacation 😂🙏 Sathyabama — where even the ERP wants to drop out! 🎓😭";
+
 const ENDPOINTS = {
   view: "MasterStudent/view",
   attendance: "StudentAttendanceHourly/getStudentAcademicHourwise",
@@ -376,12 +380,18 @@ class LiveErpAdapter implements ErpAdapter {
         body: JSON.stringify({ RegisterNumber: regNo, Password: creds.password }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : "Network error." };
+    } catch {
+      // Network failure or timeout: the ERP side isn't answering.
+      return { ok: false, error: ERP_DOWN_MESSAGE };
     }
 
     const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
     this.onResponse?.({ url: loginUrl, body: { RegisterNumber: regNo }, response: json });
+
+    // A 5xx, or an error page instead of JSON, means the ERP is down, not a bad password.
+    if (res.status >= 500 || (!res.ok && !json)) {
+      return { ok: false, error: ERP_DOWN_MESSAGE };
+    }
 
     if (!res.ok || json?.status === false) {
       const msg = str(json?.message) || `Login service returned HTTP ${res.status}`;
@@ -389,7 +399,7 @@ class LiveErpAdapter implements ErpAdapter {
     }
 
     if (!json) {
-      return { ok: false, error: "Empty response from the login service." };
+      return { ok: false, error: ERP_DOWN_MESSAGE };
     }
 
     const rd = json.responseData as Record<string, unknown> | undefined;
