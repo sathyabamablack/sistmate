@@ -26,6 +26,8 @@ const ASSET_PREFIX = (process.env.ASSET_PREFIX || "").replace(/\/+$/, "");
 const ASSET_ORIGIN = ASSET_PREFIX ? ` ${new URL(ASSET_PREFIX).origin}` : "";
 /** The question papers Worker (lib/papers.ts), which the browser calls directly. */
 const PAPERS_ORIGIN = process.env.PAPERS_API_URL ? ` ${new URL(process.env.PAPERS_API_URL.trim()).origin}` : "";
+/** The push alerts Worker (lib/push.ts), which the browser calls directly to subscribe. */
+const PUSH_ORIGIN = process.env.PUSH_API_URL ? ` ${new URL(process.env.PUSH_API_URL.trim()).origin}` : "";
 
 const securityHeaders = [
   // Inline styles/scripts are needed for the theme boot script and Next's runtime.
@@ -40,7 +42,7 @@ const securityHeaders = [
       "img-src 'self' data: blob: https:",
       `font-src 'self' data:${ASSET_ORIGIN}`,
       // The service worker fetches (and caches) the static files from the asset host.
-      `connect-src 'self'${ASSET_ORIGIN}${PAPERS_ORIGIN}`,
+      `connect-src 'self'${ASSET_ORIGIN}${PAPERS_ORIGIN}${PUSH_ORIGIN}`,
       "worker-src 'self'",
       "manifest-src 'self'",
       "frame-ancestors 'none'",

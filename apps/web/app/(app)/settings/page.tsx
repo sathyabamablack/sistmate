@@ -13,6 +13,7 @@ import { HomeLayoutSettings } from "@/components/settings/HomeLayoutSettings";
 import { GuideSettings } from "@/components/settings/GuideSettings";
 import { PrefsProvider } from "@/components/settings/PrefsProvider";
 import { ResetSettings } from "@/components/settings/ResetSettings";
+import { PushSettings } from "@/components/settings/PushSettings";
 
 export const metadata: Metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ export default async function SettingsPage() {
   const published = graded.some((s) => !s.estimated);
   const hiddenIds = new Set(prefs.hiddenCourses);
   const hiddenCourseCount = data.courses.filter((c) => hiddenIds.has(c.id)).length;
+  // The push Worker's address; the Alerts section only appears once one is configured.
+  const pushApiUrl = process.env.PUSH_API_URL?.trim() || null;
 
   return (
     <div>
@@ -61,6 +64,12 @@ export default async function SettingsPage() {
                 <GuideSettings />
               </div>
             </Disclosure>
+
+            {pushApiUrl ? (
+              <Disclosure title="Alerts" hint="Get a notification on this device" id="alerts">
+                <PushSettings apiUrl={pushApiUrl} />
+              </Disclosure>
+            ) : null}
           </div>
 
           <ResetSettings />

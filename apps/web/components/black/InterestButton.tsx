@@ -6,8 +6,8 @@ import { anton } from "./fonts";
 
 /** localStorage: this browser's random id, present only while the person is counted as interested. */
 const TOKEN_KEY = "usp-black-interested";
-/** Each poll is a request on the free hosting plan, so once a minute, and only while visible. */
-const POLL_MS = 60_000;
+/** Each read is a request on the free hosting plan, so a returning tab refreshes at most this often. */
+const POLL_MS = 300_000;
 /** How old a CDN copy of the count can be (s-maxage + stale-while-revalidate in api/interest). */
 const STALE_POLL_MS = 330_000;
 
@@ -45,12 +45,12 @@ export function InterestButton() {
   /** This browser's last tap and the exact count it got back, which a cached poll may predate. */
   const lastVote = React.useRef<{ at: number; count: number; added: boolean } | null>(null);
 
-  // Read the count now, every minute while the tab is showing, and when the tab comes back.
-  // With no store configured the button never shows, so polling stops after the first answer.
+  // Read the count once on load, and again only when a tab that sat hidden for a while comes back.
+  // There is no timer: a page left open costs nothing. With no store configured the button never
+  // shows, so listening stops after the first answer.
   React.useEffect(() => {
     let stopped = false;
     let last = 0;
-    let timer = 0;
     const refresh = async () => {
       if (document.hidden) return;
       last = Date.now();
@@ -69,11 +69,9 @@ export function InterestButton() {
     };
     const stop = () => {
       stopped = true;
-      window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
     void refresh();
-    timer = window.setInterval(refresh, POLL_MS);
     document.addEventListener("visibilitychange", onVisible);
     return stop;
   }, []);

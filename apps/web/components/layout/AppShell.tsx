@@ -1,18 +1,12 @@
 "use client";
 
 import * as React from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { MobileNav } from "./MobileNav";
 import { CommandPalette, type PaletteCourse, type PaletteNotice } from "./CommandPalette";
 import { Tour } from "@/components/tour/Tour";
-
-// Loaded after the page is interactive: it brings its own fonts and is shown at most once per session.
-const BlackPopup = dynamic(() => import("@/components/black/BlackPopup").then((m) => m.BlackPopup), {
-  ssr: false,
-});
 
 /**
  * The signed-in frame. Below lg: top bar, content, fixed bottom tab bar.
@@ -138,7 +132,6 @@ export function AppShell({
       />
 
       <Tour studentName={studentName} />
-      <BlackPopup />
     </div>
   );
 }

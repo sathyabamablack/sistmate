@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildId, checkEnvironment, probeReachability } from "@/lib/env-check";
-import { clientIp, rateLimited } from "@/lib/http";
+import { checkRate, clientIp } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 // The deep check waits at most 5 s per site, in parallel.
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
   };
 
   if (new URL(req.url).searchParams.get("deep") === "1") {
-    if (rateLimited(`health-deep:${clientIp(req)}`, 10)) {
+    if (await checkRate(`health-deep:${clientIp(req)}`, 10)) {
       return NextResponse.json(
         { ...body, error: "Too many deep checks. Try again in a few minutes." },
         { status: 429, headers: { "Cache-Control": "no-store" } },
@@ -46,8 +46,13 @@ export async function GET(req: Request) {
     body.deep = { erp, lms };
   }
 
+  // The plain check only reports the build and the environment, so the CDN may answer monitors for a
+  // minute instead of running this function each time. A failing check is never cached.
   return NextResponse.json(body, {
     status: report.ok ? 200 : 503,
-    headers: { "Cache-Control": "no-store" },
+    headers: {
+      "Cache-Control":
+        report.ok && !body.deep ? "public, s-maxage=60, stale-while-revalidate=120" : "no-store",
+    },
   });
 }

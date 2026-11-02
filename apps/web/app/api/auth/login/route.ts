@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { login } from "@/lib/session";
-import { clientIp, rateLimited, rejectCrossOrigin } from "@/lib/http";
+import { checkRate, clientIp, rejectCrossOrigin } from "@/lib/http";
 import { getPrefs } from "@/lib/prefs-server";
 
 // Portal round-trips can be slow; stay within the free plan's limits.
@@ -22,7 +22,12 @@ export async function POST(req: Request) {
   const password = str(body.password);
   const lmsPassword = str(body.lmsPassword) || undefined;
 
-  if (rateLimited(`${clientIp(req)}:${username.toLowerCase()}`)) {
+  // Per address and name, and per name alone (a looser cap), so changing the address header cannot
+  // keep guessing one account's password and get it locked on the portal.
+  if (
+    (await checkRate(`${clientIp(req)}:${username.toLowerCase()}`)) ||
+    (await checkRate(`user:${username.toLowerCase()}`, 12))
+  ) {
     return NextResponse.json(
       { error: "Too many attempts. Wait a few minutes so your portal account isn't locked." },
       { status: 429 },

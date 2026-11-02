@@ -12,17 +12,25 @@ import { Field, Input } from "@/components/ui/Input";
  * still succeeds and the dashboard offers "Connect LMS" afterwards, so there is
  * no second password field here.
  */
-export function LoginForm({ expired = false }: { expired?: boolean }) {
+const noSubscription = () => () => {};
+const readExpired = () => new URLSearchParams(window.location.search).get("expired") === "1";
+
+export function LoginForm() {
   const router = useRouter();
+  // ?expired=1 is read in the browser, so this page stays static and its form is in the HTML the
+  // CDN serves (useSearchParams would leave a blank card until the script loads). The server and
+  // the first render assume "not expired"; the browser corrects it right after hydrating.
+  const expired = React.useSyncExternalStore(noSubscription, readExpired, () => false);
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [error, setError] = React.useState<string | null>(
-    expired ? "Your session expired. Sign in again." : null,
-  );
+  const [error, setError] = React.useState<string | null>(null);
+  const [submitted, setSubmitted] = React.useState(false);
+  const message = error ?? (expired && !submitted ? "Your session expired. Sign in again." : null);
   const [loading, setLoading] = React.useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitted(true);
     setError(null);
     setLoading(true);
     try {
@@ -74,13 +82,13 @@ export function LoginForm({ expired = false }: { expired?: boolean }) {
         />
       </Field>
 
-      {error ? (
+      {message ? (
         <p
           role="alert"
           className="flex items-start gap-2 rounded-lg bg-danger/10 px-3 py-2.5 text-body text-foreground ring-1 ring-danger/30"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
-          <span>{error}</span>
+          <span>{message}</span>
         </p>
       ) : null}
 

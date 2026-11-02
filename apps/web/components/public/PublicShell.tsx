@@ -1,6 +1,5 @@
 import Link from "@/components/ui/IntentLink";
 import type { ReactNode } from "react";
-import { BlackDot } from "@/components/black/BlackDot";
 import { buttonClass } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
@@ -66,9 +65,6 @@ export function PublicShell({ children }: { children: ReactNode }) {
               <Link href="/welcome" className={cn(linkClass, "inline-flex min-h-11 items-center lg:min-h-0")}>
                 About the portal
               </Link>
-            </li>
-            <li className="flex items-center">
-              <BlackDot />
             </li>
           </ul>
         </div>

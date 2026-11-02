@@ -1,0 +1,24 @@
+{
+  // Web Push for sistmate: anonymous subscriptions in one Durable Object, admin broadcasts.
+  // Secrets, set with `wrangler secret put`: ADMIN_KEY (the /admin page asks for it) and
+  // VAPID_PRIVATE_KEY (the private half of the key pair whose public half is VAPID_PUBLIC_KEY below).
+  "name": "sistmate-push",
+  "account_id": "87dedc77eafe008c40567ce15e01e206",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  // Off on purpose: no request logs, so subscribing leaves no IP trail.
+  "observability": { "enabled": false },
+  "vars": {
+    // Pages allowed to call the subscribe API from the browser (comma-separated origins).
+    "ALLOWED_ORIGINS": "https://sistmate.vercel.app,https://sistmate-web-pi.vercel.app",
+    // Public half of the VAPID key pair (safe to publish: browsers need it to subscribe).
+    "VAPID_PUBLIC_KEY": "BLWKj_lXRbiCXdHJ-bBMIvtf91Q5cOG14IC0DnofquT-O_UcOz3jdan2m4uFBe3xdBOyfFmZNlPu0WSZ-fVhEY0",
+    // Tells push services who to contact about misuse. A web address, not a personal email.
+    "VAPID_SUBJECT": "https://sistmate.vercel.app"
+  },
+  "durable_objects": { "bindings": [{ "name": "STORE", "class_name": "PushStore" }] },
+  // SQLite-backed, which the free plan supports.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PushStore"] }]
+}

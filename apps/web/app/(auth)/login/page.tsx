@@ -1,24 +1,18 @@
 import type { Metadata } from "next";
 import Link from "@/components/ui/IntentLink";
-import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";
-import { isAuthenticated } from "@/lib/session";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = {
   title: "Sign in",
 };
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ expired?: string }>;
-}) {
-  const { expired } = await searchParams;
-  if (await isAuthenticated()) {
-    redirect("/");
-  }
-
+/**
+ * Static on purpose: this page reads no cookie and no query on the server, so the CDN serves it and
+ * no function runs per visit. The "session expired" note comes from ?expired=1 in the browser
+ * (LoginForm). A signed-in visitor who opens /login simply sees the form; signing in again works.
+ */
+export default function LoginPage() {
   return (
     <AuthShell footnote="An independent dashboard over your own data. Not affiliated with your institution.">
       <h1 className="text-title font-semibold text-foreground">Sign in</h1>
@@ -27,7 +21,7 @@ export default async function LoginPage({
       </p>
 
       <div className="mt-8">
-        <LoginForm expired={expired === "1"} />
+        <LoginForm />
       </div>
 
       <p className="mt-6 text-body text-muted-foreground">

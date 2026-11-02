@@ -5,7 +5,6 @@ import { SkipCalculator } from "@/components/landing/SkipCalculator";
 import { GetStarted } from "@/components/landing/GetStarted";
 import { PhonePreview } from "@/components/landing/PhonePreview";
 import { CgpaVisual, NextVisual, NotesVisual, SkipVisual } from "@/components/landing/FeatureVisuals";
-import { BlackDot } from "@/components/black/BlackDot";
 import { buttonClass } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
 import { PUBLIC_TOOLS } from "@/components/public/PublicShell";
@@ -322,9 +321,6 @@ export function WelcomeView({ signedIn }: { signedIn: boolean }) {
               <Link href="/install" className={cn(textLink, "inline-flex min-h-11 items-center lg:min-h-0")}>
                 Add to home screen
               </Link>
-            </li>
-            <li className="flex items-center">
-              <BlackDot />
             </li>
           </ul>
         </div>

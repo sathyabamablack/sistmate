@@ -1,17 +1,26 @@
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "@/components/ui/IntentLink";
-import { requireDashboardData } from "@/lib/data";
+import { requireDashboardData, getGradingSettings } from "@/lib/data";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { EndSemCard } from "@/components/marks/EndSemCard";
+import { creditsResolver, presetById } from "@/lib/grading-presets";
+import { caeStart } from "@/lib/endsem";
+import { caeScores, plannerSubjects, withCourses } from "@/lib/planner";
 
 export const metadata: Metadata = { title: "Marks" };
 export const dynamic = "force-dynamic";
 
 export default async function MarksPage() {
-  const data = await requireDashboardData();
+  const [data, grading] = await Promise.all([requireDashboardData(), getGradingSettings()]);
   const subjects = data.marks;
+  // Official credits and mark maxima are resolved here, on the server; the card gets a few numbers.
+  const courseByCode = new Map(
+    withCourses(plannerSubjects([], subjects), creditsResolver(grading)).map((p) => [p.code, p.course]),
+  );
+  const scale = presetById(grading.preset).scale;
   const hasPastResults = data.results.some((s) => s.results.length > 0);
   const marksIssue = data.issues.some((i) => i.section === "marks");
 
@@ -100,6 +109,27 @@ export default async function MarksPage() {
                     No components yet.
                   </p>
                 )}
+                {(() => {
+                  const course = courseByCode.get(s.code);
+                  if (!course || course.audit || !(course.externalMax > 0)) return null;
+                  const { cae1, cae2 } = caeScores(s.components);
+                  const chips = [
+                    ...(cae1 !== null ? [{ label: "CAE 1", value: String(cae1) }] : []),
+                    ...(cae2 !== null ? [{ label: "CAE 2", value: String(cae2) }] : []),
+                  ];
+                  return (
+                    <EndSemCard
+                      code={s.code}
+                      chips={chips}
+                      start={caeStart(s.components, course.internalMax)}
+                      internalMax={course.internalMax}
+                      externalMax={course.externalMax}
+                      paperMax={course.paperMax ?? course.externalMax}
+                      maxTotal={course.maxTotal}
+                      scale={scale}
+                    />
+                  );
+                })()}
               </section>
             );
           })}

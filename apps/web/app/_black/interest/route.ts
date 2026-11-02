@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { clientIp, rateLimited, rejectCrossOrigin } from "@/lib/http";
+import { checkRate, clientIp, rejectCrossOrigin } from "@/lib/http";
 import { getInterestStore, isValidToken, memberFor } from "@/lib/interest";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +39,7 @@ async function vote(req: Request, change: "add" | "remove") {
   const store = getInterestStore();
   if (!store) return unavailable();
   // Best-effort and per instance, like the login throttle: it stops a loop, not a determined script.
-  if (rateLimited(`interest:${clientIp(req)}`, 40)) {
+  if (await checkRate(`interest:${clientIp(req)}`, 40)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429, headers: NO_STORE });
   }
   let token: unknown;

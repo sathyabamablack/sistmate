@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
 /**
@@ -38,6 +39,38 @@ export function rateLimited(key: string, maxAttempts = 5): boolean {
   attempts.set(key, recent);
   if (attempts.size > 5000) attempts.clear(); // bound memory
   return recent.length > maxAttempts;
+}
+
+/**
+ * The same throttle, but shared across every serverless instance when a Redis store is configured
+ * (Upstash, or Vercel KV: the same REST variables lib/interest.ts reads). Fixed 10-minute windows, one
+ * counter per key; the key is hashed so no register number is stored. If the store is missing or
+ * answers an error, it falls back to the per-instance counter above instead of blocking sign-in.
+ */
+export async function checkRate(key: string, maxAttempts = 5): Promise<boolean> {
+  const url = process.env.UPSTASH_REDIS_REST_URL?.trim() || process.env.KV_REST_API_URL?.trim();
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim() || process.env.KV_REST_API_TOKEN?.trim();
+  if (url && token) {
+    try {
+      const slot = `rl:${createHash("sha256").update(key).digest("hex").slice(0, 32)}:${Math.floor(Date.now() / WINDOW_MS)}`;
+      const res = await fetch(`${url.replace(/\/+$/, "")}/pipeline`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify([["INCR", slot], ["EXPIRE", slot, String(WINDOW_MS / 1000)]]),
+        cache: "no-store",
+        signal: AbortSignal.timeout(1500),
+      });
+      if (res.ok) {
+        const answers = (await res.json()) as { result?: unknown }[];
+        const count = Number(answers[0]?.result);
+        if (Number.isFinite(count)) return count > maxAttempts;
+      }
+    } catch {
+      /* store unreachable: use the in-memory counter (and say so, so an outage is visible in the logs) */
+    }
+    console.warn("[ratelimit] shared store unavailable; counting per instance for now.");
+  }
+  return rateLimited(key, maxAttempts);
 }
 
 export function clientIp(req: Request): string {

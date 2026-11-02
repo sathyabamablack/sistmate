@@ -1,0 +1,16 @@
+{
+  "name": "@usp/push-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Web Push for sistmate: stores anonymous push subscriptions in one Durable Object and sends admin broadcasts. Not an npm workspace; deployed with wrangler.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "2.0.0"
+  }
+}

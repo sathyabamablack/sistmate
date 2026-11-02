@@ -224,3 +224,52 @@ self.addEventListener("fetch", (event) => {
   }
   // Everything else falls through to the browser's normal network handling.
 });
+
+/*
+ * Push alerts. The admin sends JSON { title, body, url, tag } through the push Worker; the browser
+ * wakes this worker even when the site is closed. Nothing is stored here. The link only ever opens a
+ * page on this site (a path starting with a single slash), whatever the message says.
+ */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    /* empty or not JSON: fall back to a plain notice */
+  }
+  const text = (value, max, fallback) =>
+    typeof value === "string" && value.trim() ? value.trim().slice(0, max) : fallback;
+  const title = text(data.title, 80, "sistmate");
+  const body = text(data.body, 240, "");
+  const rawUrl = typeof data.url === "string" ? data.url : "";
+  const url = rawUrl.startsWith("/") && !rawUrl.startsWith("//") ? rawUrl : "/";
+  const tag = typeof data.tag === "string" && /^[A-Za-z0-9-]{1,40}$/.test(data.tag) ? data.tag : undefined;
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.png",
+      tag,
+      data: { url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const path = event.notification.data && typeof event.notification.data.url === "string" ? event.notification.data.url : "/";
+  const target = new URL(path, self.location.origin);
+  // Never leave this site, even if the stored link was odd.
+  const href = target.origin === self.location.origin ? target.href : self.location.origin + "/";
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of windows) {
+        if (new URL(client.url).origin !== self.location.origin) continue;
+        await client.focus();
+        if ("navigate" in client) await client.navigate(href).catch(() => undefined);
+        return;
+      }
+      await self.clients.openWindow(href);
+    })(),
+  );
+});

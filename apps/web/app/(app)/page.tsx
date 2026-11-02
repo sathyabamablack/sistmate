@@ -11,7 +11,6 @@ import { ConnectMoodleCard } from "@/components/dashboard/ConnectMoodleCard";
 import { AttendanceTable } from "@/components/dashboard/AttendanceTable";
 import { ClassCountdown } from "@/components/dashboard/ClassCountdown";
 import { TourCard } from "@/components/dashboard/TourCard";
-import { BlackStrip } from "@/components/black/BlackStrip";
 import { CountdownChips, RiskBanner } from "@/components/dashboard/RiskBanner";
 import { MorningBrief } from "@/components/dashboard/MorningBrief";
 import { TodayAttendanceChip } from "@/components/dashboard/TodayAttendanceChip";
@@ -414,8 +413,6 @@ export default async function DashboardPage() {
           {updated}
         </p>
       </header>
-
-      <BlackStrip />
 
       <TourCard />
 

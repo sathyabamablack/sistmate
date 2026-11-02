@@ -10,6 +10,7 @@ import { labelClass } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 import { PapersError, uploadPaper, type PapersClient } from "./api";
 import { imagesToPdf } from "./images-to-pdf";
+import { FilePicker } from "./FilePicker";
 
 export interface Subject {
   code: string;
@@ -253,14 +254,7 @@ export function UploadPaperDialog({
               )}
 
               <Field label="File" htmlFor="paper-file" hint="One PDF, or a photo of each page (they're compressed and joined into one PDF).">
-                <Input
-                  id="paper-file"
-                  type="file"
-                  accept="application/pdf,image/*"
-                  multiple
-                  aria-describedby="paper-file-hint"
-                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-                />
+                <FilePicker id="paper-file" files={files} onChange={setFiles} describedBy="paper-file-hint" />
               </Field>
             </div>
 

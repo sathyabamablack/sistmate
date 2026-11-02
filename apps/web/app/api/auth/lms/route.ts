@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createLiveLmsAdapter } from "@usp/lms-adapter";
 import { dataSource, getSession } from "@/lib/session";
 import { invalidateDashboardData } from "@/lib/data";
-import { clientIp, rateLimited, rejectCrossOrigin } from "@/lib/http";
+import { checkRate, clientIp, rejectCrossOrigin } from "@/lib/http";
 
 export const maxDuration = 30;
 
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Enter your LMS password." }, { status: 400 });
   }
 
-  if (rateLimited(`lms:${clientIp(req)}:${session.username.toLowerCase()}`)) {
+  if (await checkRate(`lms:${clientIp(req)}:${session.username.toLowerCase()}`)) {
     return NextResponse.json(
       { error: "Too many attempts. Wait a few minutes so your LMS account isn't locked." },
       { status: 429 },

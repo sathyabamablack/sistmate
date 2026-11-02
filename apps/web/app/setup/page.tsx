@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { buildId, checkEnvironment, probeReachability, type CheckStatus, type EnvCheck, type Reachability } from "@/lib/env-check";
-import { clientIp, rateLimited } from "@/lib/http";
+import { checkRate, clientIp } from "@/lib/http";
 import { buttonClass } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
 import { Panel } from "@/components/ui/Panel";
@@ -58,7 +58,7 @@ export default async function SetupPage({
 
   if (deep === "1" && report.dataSource === "live") {
     const incoming = await headers();
-    if (rateLimited(`setup-deep:${clientIp(new Request("http://local", { headers: incoming }))}`, 10)) {
+    if (await checkRate(`setup-deep:${clientIp(new Request("http://local", { headers: incoming }))}`, 10)) {
       deepNote = "Too many connection tests. Wait a few minutes and try again.";
     } else {
       const [erp, lms] = await Promise.all([
