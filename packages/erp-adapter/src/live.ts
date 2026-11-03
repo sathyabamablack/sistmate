@@ -39,7 +39,7 @@ export interface LiveErpOptions {
   baseUrl?: string;
   /**
    * Base URL of the login service that exchanges register number + password
-   * for the ERP JWT (its `POST /api/login`). Defaults to {@link DEFAULT_AUTH_BASE}.
+   * for the ERP JWT. This is the full login URL, POSTed to as-is. Defaults to {@link DEFAULT_AUTH_BASE}.
    */
   authBaseUrl?: string;
   session?: string;
@@ -63,7 +63,7 @@ const USER_AGENT =
 const API_PATH = "erp/api/v1.0/";
 
 /** Login service that returns the ERP JWT for a register number + password. */
-export const DEFAULT_AUTH_BASE = "https://erp.sathyabama.ac.in/erp/api/v1.0/MasterStudent/login_stu_g";
+export const DEFAULT_AUTH_BASE = "https://erp.sathyabama.ac.in/erp/api/v1.0/MasterStudent/login_new";
 
 /** Shown when the login service can't be reached or falls over (not for wrong passwords). */
 export const ERP_DOWN_MESSAGE =
@@ -368,7 +368,7 @@ class LiveErpAdapter implements ErpAdapter {
 
     // The login service signs in on the ERP (past its Turnstile) and returns
     // the ERP's own JWT, which our data calls then carry as a Bearer token.
-    const loginUrl = `${this.authBase}/api/login`;
+    const loginUrl = this.authBase;
     let res: Response;
     try {
       res = await this.fetchImpl(loginUrl, {

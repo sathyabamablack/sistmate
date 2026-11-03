@@ -24,7 +24,7 @@ function fakeApi() {
     seen.push({ url, auth, body });
     const is = (path: string) => url.endsWith(path);
 
-    if (is("/api/login")) {
+    if (is("/login_new")) {
       if (body.RegisterNumber === "41110234" && body.Password === "01-01-2006") {
         return reply({ login: { accessToken: "jwt-test-token-123", StudentId: 9001 } });
       }
@@ -128,7 +128,7 @@ function fakeApi() {
 
 async function signIn(password = "01-01-2006") {
   const { impl, seen } = fakeApi();
-  const erp = createLiveErpAdapter({ baseUrl: BASE, authBaseUrl: BASE, fetch: impl });
+  const erp = createLiveErpAdapter({ baseUrl: BASE, authBaseUrl: `${BASE}/login_new`, fetch: impl });
   const result = await erp.authenticate({ username: "41110234", password });
   return { impl, seen, result };
 }
@@ -140,8 +140,8 @@ describe("live ERP adapter (REST API)", () => {
     const session = JSON.parse(result.session!);
     expect(session).toMatchObject({ token: "jwt-test-token-123", regNo: "41110234", studentId: "9001" });
     expect(result.session).not.toContain("01-01-2006");
-    // Login goes to the login service's /api/login with just register number + password.
-    expect(seen[0]!.url).toContain("/api/login");
+    // Login goes to the login service with just register number + password.
+    expect(seen[0]!.url).toContain("/login_new");
     expect(seen[0]!.body).toEqual({ RegisterNumber: "41110234", Password: "01-01-2006" });
   });
 
