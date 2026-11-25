@@ -1,5 +1,6 @@
 "use client";
 
+import { LastUpdated } from "./LastUpdated";
 import * as React from "react";
 import Link from "@/components/ui/IntentLink";
 import { usePathname } from "next/navigation";
@@ -43,6 +44,7 @@ export function Topbar({
   erpUrl,
   lmsUrl,
   connectionStatus,
+  fetchedAt,
 }: {
   studentName: string;
   registerNumber: string;
@@ -56,6 +58,8 @@ export function Topbar({
   erpUrl?: string;
   lmsUrl?: string;
   connectionStatus?: React.ReactNode;
+  /** ISO time the data on screen was fetched from the ERP. */
+  fetchedAt?: string;
 }) {
   const erpHref = safeHttpUrl(erpUrl);
   const lmsHref = safeHttpUrl(lmsUrl);
@@ -127,17 +131,7 @@ export function Topbar({
 
       <ThemeToggle />
 
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onRefresh}
-        disabled={refreshing}
-        aria-label="Refresh data"
-        title="Refresh data"
-        className="hidden lg:inline-flex"
-      >
-        <RefreshCw className={cn("h-[18px] w-[18px]", refreshing && "animate-spin")} aria-hidden />
-      </Button>
+      <LastUpdated fetchedAt={fetchedAt} onRefresh={onRefresh} refreshing={refreshing} />
       <Button
         variant="ghost"
         size="icon"

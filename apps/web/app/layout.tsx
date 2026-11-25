@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
   appleWebApp: {
     capable: true,
-    title: "Portal",
+    title: "SISTmate",
     statusBarStyle: "default",
   },
   // Setting `icons` replaces the file-based app/icon.svg link, so list it too.

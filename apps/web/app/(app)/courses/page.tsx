@@ -9,6 +9,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { CourseChooser } from "@/components/courses/CourseChooser";
 import { CourseGrid, type CourseCardData } from "@/components/courses/CourseGrid";
 import { relativeTo } from "@/components/courses/format";
+import { ConnectMoodleCard } from "@/components/dashboard/ConnectMoodleCard";
+import { dataSource } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Courses" };
 export const dynamic = "force-dynamic";
@@ -63,6 +65,9 @@ export default async function CoursesPage({
     };
   });
 
+  // The LMS has its own password; ask for it here, the first time courses are wanted.
+  const needsLms = !data.connected.lms && dataSource() === "live" && !!process.env.LMS_BASE_URL;
+
   const noun = shown.length === 1 ? "course" : "courses";
   const summary =
     all.length === 0
@@ -94,7 +99,13 @@ export default async function CoursesPage({
         }
       />
 
-      {all.length === 0 ? (
+      {needsLms ? (
+        <div className="mb-6">
+          <ConnectMoodleCard />
+        </div>
+      ) : null}
+
+      {all.length === 0 && !needsLms ? (
         <EmptyState
           icon={BookOpen}
           title={data.connected.lms ? "No courses on your LMS account" : "LMS isn't connected"}

@@ -25,32 +25,57 @@ export function LoginForm() {
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [submitted, setSubmitted] = React.useState(false);
+  const [remember, setRemember] = React.useState(true);
   const message = error ?? (expired && !submitted ? "Your session expired. Sign in again." : null);
-  const [loading, setLoading] = React.useState(false);
+  // "checking" while the login service answers, "opening" from the moment it accepts until the next
+  // page has taken over. The old code cleared the spinner as soon as the reply arrived, so the form
+  // sat idle for the ~2 s the dashboard needs to load.
+  const [phase, setPhase] = React.useState<"idle" | "checking" | "opening">("idle");
+  const [slow, setSlow] = React.useState(false);
+  const loading = phase !== "idle";
+
+  // The college server can take a few seconds; say so instead of leaving a silent spinner.
+  React.useEffect(() => {
+    if (phase !== "checking") {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), 4000);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  // Safety net: if navigation never completes, hand the form back instead of locking it forever.
+  React.useEffect(() => {
+    if (phase !== "opening") return;
+    const t = setTimeout(() => setPhase("idle"), 20000);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
     setError(null);
-    setLoading(true);
+    setPhase("checking");
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, remember }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; home?: string };
       if (!res.ok) {
         setError(data.error ?? "Sign-in failed. Check your details and try again.");
+        setPhase("idle");
         return;
       }
+      // Stay in the busy state until the dashboard replaces this page.
+      setPhase("opening");
       // The saved start page; only same-site paths are accepted.
       router.push(data.home?.startsWith("/") && !data.home.startsWith("//") ? data.home : "/");
       router.refresh();
     } catch {
       setError("Network error. Try again.");
-    } finally {
-      setLoading(false);
+      setPhase("idle");
     }
   };
 
@@ -65,6 +90,7 @@ export function LoginForm() {
           inputMode="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
+          readOnly={loading}
           placeholder="e.g. 42110001"
           required
         />
@@ -78,9 +104,26 @@ export function LoginForm() {
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          readOnly={loading}
           required
         />
       </Field>
+
+      <label className="flex cursor-pointer items-start gap-3 text-body text-foreground">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
+          disabled={loading}
+          className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-primary)]"
+        />
+        <span>
+          Keep me signed in
+          <span className="block text-small text-muted-foreground">
+            Your details are encrypted and kept on this device only, so you don&apos;t have to sign in again.
+          </span>
+        </span>
+      </label>
 
       {message ? (
         <p
@@ -93,8 +136,11 @@ export function LoginForm() {
       ) : null}
 
       <Button type="submit" className="w-full" loading={loading}>
-        {loading ? "Signing in…" : "Sign in"}
+        {phase === "opening" ? "Signed in — opening your dashboard…" : loading ? "Signing in…" : "Sign in"}
       </Button>
+      <p className="min-h-5 text-center text-small text-muted-foreground" role="status" aria-live="polite">
+        {slow ? "Still checking with the college server. It can be slow, hang on." : ""}
+      </p>
     </form>
   );
 }

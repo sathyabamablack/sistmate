@@ -4,15 +4,15 @@ import { cookies, headers } from "next/headers";
 import { getIronSession, type SessionOptions } from "iron-session";
 import type { AuthResult } from "@usp/core";
 import { createLiveErpAdapter } from "@usp/erp-adapter";
-import { createLiveLmsAdapter } from "@usp/lms-adapter";
 import { parseDataSource, type DataSourceMode } from "./env-check";
 
 /**
  * Encrypted, stateless session (iron-session: AES-256-GCM sealed cookie).
  *
  * The cookie carries only what the live adapters need to keep talking to the
- * portals: the ERP cookie jar and the Moodle web-service token. The password
- * is used once to obtain those and is never stored, logged, or returned.
+ * portals: the ERP token and the Moodle web-service token. The password is used
+ * once to obtain those and is never logged or returned. If the student ticks
+ * "Keep me signed in", lib/remember.ts keeps it sealed in a separate cookie.
  * Stateless means no database — it runs on any free serverless host.
  */
 
@@ -136,23 +136,14 @@ export async function login(input: LoginInput): Promise<LoginResult> {
     return { ok: false, error: erpAuth.error ?? "ERP sign-in failed." };
   }
 
-  const lmsAuth = process.env.LMS_BASE_URL
-    ? await createLiveLmsAdapter({ baseUrl: process.env.LMS_BASE_URL })
-        .authenticate({ username, password: input.lmsPassword || input.password })
-        .catch((e: unknown) => failed(e, "LMS sign-in failed."))
-    : failed(null, "LMS is not configured.");
-
   session.username = username;
   session.createdAt = new Date().toISOString();
   session.erpSession = erpAuth.session;
-  session.lmsToken = lmsAuth.ok ? lmsAuth.session : undefined;
+  // The LMS has its own password; it is asked for when someone opens Courses, not at sign-in.
+  session.lmsToken = undefined;
   await session.save();
 
-  return {
-    ok: true,
-    lmsConnected: Boolean(lmsAuth.ok && lmsAuth.session),
-    lmsError: lmsAuth.ok ? undefined : lmsAuth.error,
-  };
+  return { ok: true, lmsConnected: false };
 }
 
 export async function logout(): Promise<void> {

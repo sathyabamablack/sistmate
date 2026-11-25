@@ -7,6 +7,7 @@ import { getPrefs } from "@/lib/prefs-server";
 import { AppShell } from "@/components/layout/AppShell";
 import { ConnectionStatus } from "@/components/connect/ConnectionStatus";
 import { portalLinks } from "@/components/layout/external-links";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { Panel } from "@/components/ui/Panel";
 import { buttonClass } from "@/components/ui/Button";
 
@@ -50,7 +51,9 @@ export default async function AppLayout({
       paletteCourses={paletteCourses}
       paletteNotices={paletteNotices}
       connectionStatus={<ConnectionStatus />}
+      fetchedAt={data.fetchedAt}
     >
+      <InstallPrompt />
       {data.issues.length > 0 && <IssuesBanner issues={data.issues} />}
       {children}
     </AppShell>

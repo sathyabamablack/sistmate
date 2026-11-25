@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { login } from "@/lib/session";
 import { checkRate, clientIp, rejectCrossOrigin } from "@/lib/http";
 import { getPrefs } from "@/lib/prefs-server";
+import { clearRemembered, saveRemembered } from "@/lib/remember";
 
 // Portal round-trips can be slow; stay within the free plan's limits.
 export const maxDuration = 30;
@@ -21,6 +22,7 @@ export async function POST(req: Request) {
   const username = str(body.username).trim();
   const password = str(body.password);
   const lmsPassword = str(body.lmsPassword) || undefined;
+  const remember = body.remember === true;
 
   // Per address and name, and per name alone (a looser cap), so changing the address header cannot
   // keep guessing one account's password and get it locked on the portal.
@@ -38,6 +40,9 @@ export async function POST(req: Request) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 401 });
   }
+  // Opt-in: seal the details in a cookie on this device so the next visit can sign in quietly.
+  if (remember) await saveRemembered(username, password);
+  else await clearRemembered();
   return NextResponse.json({
     ok: true,
     home: (await getPrefs()).home,

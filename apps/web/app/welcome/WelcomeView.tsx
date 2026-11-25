@@ -68,16 +68,16 @@ const FEATURES = [
 
 const PRIVACY_FACTS = [
   {
-    lead: "Your password is never stored.",
-    body: "It is used once to get a session from the ERP, then discarded.",
+    lead: "You decide what is kept.",
+    body: "Your password gets you a session and is then discarded, unless you tick Keep me signed in. Then it is kept encrypted in a cookie on your own device, never on our server, and removed when you sign out.",
   },
   {
     lead: "The session lives in an encrypted cookie.",
-    body: "It lasts 8 hours and only ever reads your own data.",
+    body: "It lasts 8 hours, only ever reads your own data, and renews itself quietly if you chose to stay signed in.",
   },
   {
-    lead: "There is no database.",
-    body: "Pages are fetched when you open them and cached for a few minutes.",
+    lead: "Your marks and attendance are not kept.",
+    body: "Pages are fetched from the ERP when you open them and cached for a few minutes. Nothing about you is kept on our side.",
   },
 ] as const;
 
@@ -88,7 +88,7 @@ const FAQ = [
   },
   {
     q: "Is my password stored?",
-    a: "No. It is exchanged once for a session and then discarded. Nothing is written to a database.",
+    a: "Only if you choose, and only on your own device. By default it is exchanged once for a session and discarded. If you tick Keep me signed in, it is kept encrypted in a cookie on your device so the app can sign you in again quietly. It is removed when you sign out. It is never saved on our server.",
   },
   {
     q: "Does it work on iPhone?",

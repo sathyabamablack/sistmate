@@ -3,11 +3,9 @@ import Link from "@/components/ui/IntentLink";
 import { overallAttendance, hasGrades, computeCgpa } from "@usp/core";
 import type { CalendarEvent, DashboardData } from "@usp/core";
 import { requireDashboardData } from "@/lib/data";
-import { dataSource, getSession } from "@/lib/session";
-import { erpSubjects, visibleCourses } from "@/lib/course-names";
+import { erpSubjects } from "@/lib/course-names";
 import { getPrefs } from "@/lib/prefs-server";
 import type { DashboardSection } from "@/lib/prefs";
-import { ConnectMoodleCard } from "@/components/dashboard/ConnectMoodleCard";
 import { AttendanceTable } from "@/components/dashboard/AttendanceTable";
 import { ClassCountdown } from "@/components/dashboard/ClassCountdown";
 import { TourCard } from "@/components/dashboard/TourCard";
@@ -37,7 +35,6 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Panel } from "@/components/ui/Panel";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { Section, sectionLinkClass } from "@/components/ui/Section";
 import { Stat } from "@/components/ui/Stat";
@@ -50,8 +47,6 @@ const MAIN_COLUMN: ReadonlySet<DashboardSection> = new Set(["today", "attendance
 export default async function DashboardPage() {
   const [data, prefs, cookieStore] = await Promise.all([requireDashboardData(), getPrefs(), cookies()]);
   const threshold = prefs.attendanceThreshold;
-  const lmsConfigured = dataSource() === "live" && !!process.env.LMS_BASE_URL;
-  const showConnectMoodle = lmsConfigured && !(await getSession()).lmsToken;
   const now = new Date();
   const clock = campusClock(now);
   const todayIdx = clock.dayIndex;
@@ -96,11 +91,6 @@ export default async function DashboardPage() {
 
   const notices = data.notifications.slice(0, 5);
   const anyUnread = data.notifications.some((n) => !n.read);
-  const courses = visibleCourses(
-    data.courses,
-    prefs,
-    erpSubjects(data.attendance, data.timetable),
-  ).sort((a, b) => (b.progress ?? 0) - (a.progress ?? 0));
 
   const risks = attendanceRisks(data.attendance, threshold);
   const countdowns = nextCountdowns(data.events, now);
@@ -124,7 +114,6 @@ export default async function DashboardPage() {
   ]
     .filter(Boolean)
     .join(", ");
-  const updated = `Updated ${relativeTime(data.fetchedAt, now, { pastOnly: true })}`;
 
   const live =
     nextClass && agendaOffset === 0
@@ -146,7 +135,7 @@ export default async function DashboardPage() {
     attendance: true,
     due: true,
     notices: true,
-    courses: courses.length > 0,
+    courses: false,
   };
   const hidden = new Set(prefs.dashboard.hidden);
   let visible = prefs.dashboard.order.filter((id) => available[id] && !hidden.has(id));
@@ -255,34 +244,8 @@ export default async function DashboardPage() {
       </Section>
     ),
 
-    courses: (
-      <Section
-        id="courses"
-        title="Courses"
-        action={
-          <Link href="/courses" className={sectionLinkClass}>
-            All courses
-          </Link>
-        }
-      >
-        <ul className="divide-y divide-border">
-          {courses.slice(0, 6).map((c) => (
-            <li key={c.id} className="flex items-center gap-4 py-3 first:pt-0">
-              <div className="min-w-0 flex-1">
-                <p className="text-body font-medium text-foreground sm:truncate">{c.displayName ?? c.fullName}</p>
-                <p className="truncate text-small text-muted-foreground">{c.displayCode ?? c.shortName}</p>
-              </div>
-              <div className="w-24 shrink-0 sm:w-36">
-                <ProgressBar value={c.progress ?? 0} aria-label={`${c.displayName ?? c.fullName} progress`} />
-              </div>
-              <span className="w-10 shrink-0 text-right text-small font-semibold tabular-nums text-foreground">
-                {c.progress ?? 0}%
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Section>
-    ),
+    // The LMS is not part of home; courses live on /courses and ask for the LMS password there.
+    courses: null,
 
     glance: (
       <Section id="glance" title="At a glance">
@@ -310,7 +273,6 @@ export default async function DashboardPage() {
         ) : (
           <EmptyState
             title="Nothing due in the next two weeks"
-            description={showConnectMoodle ? "Connect your LMS to see deadlines." : undefined}
           />
         )}
       </Section>
@@ -407,16 +369,10 @@ export default async function DashboardPage() {
           {programLine ? (
             <p className="mt-0.5 text-small text-muted-foreground">{programLine}</p>
           ) : null}
-          <p className="mt-0.5 text-small text-muted-foreground sm:hidden">{updated}</p>
         </div>
-        <p className="ml-auto hidden shrink-0 pt-1 text-small text-muted-foreground sm:block">
-          {updated}
-        </p>
       </header>
 
       <TourCard />
-
-      {showConnectMoodle ? <ConnectMoodleCard /> : null}
 
       {hasAlerts ? (
         <div className="enter space-y-3 empty:hidden" style={{ "--i": 1 } as React.CSSProperties}>

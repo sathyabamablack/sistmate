@@ -166,7 +166,7 @@ function ResultsScreen() {
 const SLIDES = [
   {
     title: "Home",
-    body: "Your next class, and how every subject stands against 75%.",
+    body: "Your next class, and how every subject stands against 80%.",
     screen: () => <MockPage page="portal-dashboard" view={DASHBOARD_VIEW} size="phone" />,
   },
   {

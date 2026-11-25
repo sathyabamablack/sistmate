@@ -3,9 +3,9 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Unified Student Portal",
-    short_name: "Portal",
-    description: "Attendance, marks, timetable, fees and LMS in one place.",
+    name: "SISTmate",
+    short_name: "SISTmate",
+    description: "Attendance, marks, timetable and question papers for Sathyabama students.",
     start_url: "/",
     scope: "/",
     display: "standalone",

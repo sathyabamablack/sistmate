@@ -39,7 +39,7 @@ export interface LiveErpOptions {
   baseUrl?: string;
   /**
    * Base URL of the login service that exchanges register number + password
-   * for the ERP JWT (its `POST /api/login`). Defaults to {@link DEFAULT_AUTH_BASE}.
+   * for the ERP JWT. The adapter POSTs to its `/login`. Defaults to {@link DEFAULT_AUTH_BASE}.
    */
   authBaseUrl?: string;
   session?: string;
@@ -63,11 +63,15 @@ const USER_AGENT =
 const API_PATH = "erp/api/v1.0/";
 
 /** Login service that returns the ERP JWT for a register number + password. */
-export const DEFAULT_AUTH_BASE = "https://sathyabama-erp-backend.sistmate-static.workers.dev";
+export const DEFAULT_AUTH_BASE = "https://api.sathyabamablack.tech";
 
-/** Shown when the login service can't be reached or falls over (not for wrong passwords). */
-export const ERP_DOWN_MESSAGE =
-  "Guys, Sathyabama ERP is down again 💀 Attendance is compulsory, assignments are mandatory, fees are non-refundable, but the server is on permanent vacation 😂🙏 Sathyabama — where even the ERP wants to drop out! 🎓😭";
+/** Shown when the login service can't be reached or answers with anything we don't recognise. */
+export const ERP_DOWN_MESSAGE = "We'll be back soon. Please try again in a little while.";
+
+/** Only a plain wrong-details message from the ERP is shown to the student; everything else is hidden. */
+const BAD_CREDENTIALS_MESSAGE = "Wrong register number or password. Check your details and try again.";
+const looksLikeBadCredentials = (m: string) =>
+  /invalid|incorrect|wrong|credential|not found|password|username/i.test(m) && !/warning|official|not responsible/i.test(m);
 
 const ENDPOINTS = {
   view: "MasterStudent/view",
@@ -210,7 +214,7 @@ class LiveErpAdapter implements ErpAdapter {
       this.apiBase = null;
       this.origin = null;
     }
-    this.authBase = (opts.authBaseUrl ?? DEFAULT_AUTH_BASE).replace(/\/+$/, "");
+    this.authBase = (opts.authBaseUrl?.trim() || DEFAULT_AUTH_BASE).replace(/\/+$/, "");
     this.timeoutMs = opts.timeoutMs ?? 20_000;
     this.fetchImpl = opts.fetch ?? fetch;
     this.callerSignal = opts.signal;
@@ -384,7 +388,7 @@ class LiveErpAdapter implements ErpAdapter {
 
     // The login service signs in on the ERP (past its Turnstile) and returns
     // the ERP's own JWT, which our data calls then carry as a Bearer token.
-    const loginUrl = `${this.authBase}/api/login`;
+    const loginUrl = `${this.authBase}/login`;
     let res: Response;
     try {
       res = await this.fetchImpl(loginUrl, {
@@ -393,13 +397,7 @@ class LiveErpAdapter implements ErpAdapter {
           "Content-Type": "application/json",
           "User-Agent": USER_AGENT,
         },
-        // The Workers service reads camelCase keys; older services read PascalCase.
-        body: JSON.stringify({
-          registerNumber: regNo,
-          password: creds.password,
-          RegisterNumber: regNo,
-          Password: creds.password,
-        }),
+        body: JSON.stringify({ registerNumber: regNo, password: creds.password }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch {
@@ -412,28 +410,24 @@ class LiveErpAdapter implements ErpAdapter {
 
     // The Workers service wraps the ERP's own envelope as `erp` and puts its
     // message in `error`; older services return the envelope directly.
-    const json =
-      outer?.erp && typeof outer.erp === "object" ? (outer.erp as Record<string, unknown>) : outer;
+    const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+    const json = isObj(outer?.erp) ? outer.erp : isObj(outer?.data) ? outer.data : outer;
 
-    // A 5xx, or an error page instead of JSON, means the ERP is down, not a bad password.
-    if (res.status >= 500 || (!res.ok && !json)) {
-      return { ok: false, error: ERP_DOWN_MESSAGE };
+    if (!json || !outer) return { ok: false, error: ERP_DOWN_MESSAGE };
+
+    if (!res.ok || json.status === false) {
+      const msg = str(json.message) || str(outer.error);
+      // 5xx, wrong link, captcha/warning text, HTML pages: say nothing about why.
+      if (res.status >= 500 || !looksLikeBadCredentials(msg)) return { ok: false, error: ERP_DOWN_MESSAGE };
+      return { ok: false, error: BAD_CREDENTIALS_MESSAGE };
     }
 
-    if (!res.ok || json?.status === false) {
-      const msg =
-        str(json?.message) || str(outer?.error) || `Login service returned HTTP ${res.status}`;
-      return { ok: false, error: msg };
-    }
-
-    if (!json || !outer) {
-      return { ok: false, error: ERP_DOWN_MESSAGE };
-    }
-
-    const rd = json.responseData as Record<string, unknown> | undefined;
-    const loginData = rd?.login as Record<string, unknown> | undefined;
+    const rd = (json.responseData ?? (json === outer ? undefined : json)) as Record<string, unknown> | undefined;
+    const loginData = (rd?.login ?? json.login) as Record<string, unknown> | undefined;
     const token =
       str(loginData?.accessToken) ||
+      str(json.accessToken) ||
+      str(json.token) ||
       str(outer.accessToken) ||
       str(outer.token) ||
       str(rd?.["Access-Token"]) ||
@@ -442,8 +436,8 @@ class LiveErpAdapter implements ErpAdapter {
       str((rd?.data as Record<string, unknown>[])?.[0]?.["Access-Token"]);
 
     if (!token) {
-      const msg = str(rd?.message) || str(json.message) || "Invalid credentials.";
-      return { ok: false, error: msg };
+      const msg = str(rd?.message) || str(json.message);
+      return { ok: false, error: looksLikeBadCredentials(msg) ? BAD_CREDENTIALS_MESSAGE : ERP_DOWN_MESSAGE };
     }
 
     // Student logins return StudentId; IdentityId is the staff/admin field.

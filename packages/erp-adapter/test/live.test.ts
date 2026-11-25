@@ -24,8 +24,8 @@ function fakeApi() {
     seen.push({ url, auth, body });
     const is = (path: string) => url.endsWith(path);
 
-    if (is("/api/login")) {
-      if (body.RegisterNumber === "41110234" && body.Password === "01-01-2006") {
+    if (is("/login")) {
+      if (body.registerNumber === "41110234" && body.password === "01-01-2006") {
         return reply({ login: { accessToken: "jwt-test-token-123", StudentId: 9001 } });
       }
       return new Response(JSON.stringify({ status: false, message: "Invalid credentials" }), {
@@ -140,21 +140,52 @@ describe("live ERP adapter (REST API)", () => {
     const session = JSON.parse(result.session!);
     expect(session).toMatchObject({ token: "jwt-test-token-123", regNo: "41110234", studentId: "9001" });
     expect(result.session).not.toContain("01-01-2006");
-    // Login goes to the login service's /api/login with just register number + password, in both
-    // casings (the Worker backend takes camelCase, the ERP itself PascalCase).
-    expect(seen[0]!.url).toContain("/api/login");
-    expect(seen[0]!.body).toEqual({
-      RegisterNumber: "41110234",
-      Password: "01-01-2006",
-      registerNumber: "41110234",
-      password: "01-01-2006",
-    });
+    // Login goes to the login service's /login with just register number + password.
+    expect(seen[0]!.url).toContain("/login");
+    expect(seen[0]!.body).toEqual({ registerNumber: "41110234", password: "01-01-2006" });
+
   });
 
   it("rejects bad credentials with an error message", async () => {
     const { result } = await signIn("wrong");
     expect(result.ok).toBe(false);
     expect(result.error).toBeDefined();
+  });
+
+  it("reads the wrapped { success, data } reply of the sathyabamablack login API", async () => {
+    const wrapped = (data: unknown) =>
+      (async () =>
+        new Response(JSON.stringify({ success: true, status: 200, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })) as unknown as typeof fetch;
+    const bad = await createLiveErpAdapter({
+      baseUrl: BASE,
+      authBaseUrl: BASE,
+      fetch: wrapped({ status: false, message: "Login failed. Please enter the valid Register Number and Password" }),
+    }).authenticate({ username: "1", password: "x" });
+    expect(bad.ok).toBe(false);
+    expect(bad.error).toMatch(/wrong register number/i);
+  });
+
+  it("signs in from the wrapped success reply (data.responseData.login)", async () => {
+    const body = {
+      success: true,
+      status: 200,
+      data: {
+        status: true,
+        message: "Success",
+        responseData: { login: { StudentId: 9002, RegisterNumber: "41110999", accessToken: "jwt-abc" } },
+      },
+    };
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })) as unknown as typeof fetch;
+    const r = await createLiveErpAdapter({ baseUrl: BASE, authBaseUrl: BASE, fetch: fetchImpl }).authenticate({
+      username: "41110999",
+      password: "x",
+    });
+    expect(r.ok).toBe(true);
+    expect(JSON.parse(r.session!)).toMatchObject({ token: "jwt-abc", regNo: "41110999", studentId: "9002" });
   });
 
   it("loads the profile from MasterStudent/view with the Bearer token", async () => {
@@ -306,5 +337,25 @@ describe("live ERP adapter (REST API)", () => {
       session: JSON.stringify({ token: "jwt-test-token-123", regNo: "41110234" }),
     });
     await expect(erp.getAttendance()).rejects.toThrow(MISSING_STUDENT_ID);
+  });
+
+  it("hides the ERP's warning text and any bad-link failure behind a friendly message", async () => {
+    const mk = (res: () => Response | Promise<Response>) =>
+      createLiveErpAdapter({ baseUrl: BASE, authBaseUrl: BASE, fetch: (async () => res()) as typeof fetch });
+    const warn = "Warning: This is not an official ERP portal. I am not responsible for any data loss.";
+    const json = (b: unknown, status: number) =>
+      new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
+    for (const res of [
+      () => json({ status: false, message: warn }, 200),
+      () => json({ status: false, message: warn }, 403),
+      () => new Response("<html>Not found</html>", { status: 404 }),
+      () => json({ status: false, message: "Invalid credentials" }, 502),
+      () => { throw new TypeError("fetch failed: getaddrinfo ENOTFOUND"); },
+    ]) {
+      const r = await mk(res).authenticate({ username: "41110234", password: "x" });
+      expect(r).toEqual({ ok: false, error: "We'll be back soon. Please try again in a little while." });
+    }
+    const bad = await mk(() => json({ status: false, message: "Invalid credentials" }, 401)).authenticate({ username: "41110234", password: "x" });
+    expect(bad).toMatchObject({ ok: false, error: expect.stringContaining("Wrong register number or password") });
   });
 });

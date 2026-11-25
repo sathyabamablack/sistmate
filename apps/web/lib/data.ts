@@ -1,3 +1,4 @@
+import { hasRemembered } from "./remember";
 import "server-only";
 
 import { createHash } from "node:crypto";
@@ -480,6 +481,8 @@ export const requireDashboardData = reactCache(async (): Promise<DashboardData> 
   } catch (err) {
     if (err instanceof NotSignedInError) {
       if (err.expired) console.warn("[auth] Portal session expired; sending the student back to sign in.");
+      // A student who chose "Keep me signed in" is signed in again quietly instead of seeing the form.
+      if (await hasRemembered()) redirect("/api/auth/resume");
       redirect(err.expired ? "/api/auth/expired" : "/login");
     }
     throw err;

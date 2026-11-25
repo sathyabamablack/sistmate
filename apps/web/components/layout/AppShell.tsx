@@ -23,6 +23,7 @@ export function AppShell({
   erpUrl,
   lmsUrl,
   connectionStatus,
+  fetchedAt,
   children,
 }: {
   studentName: string;
@@ -33,6 +34,8 @@ export function AppShell({
   /** Short, capped lists for the command palette. */
   paletteCourses?: PaletteCourse[];
   paletteNotices?: PaletteNotice[];
+  /** ISO time the data on screen was fetched. */
+  fetchedAt?: string;
   /** Real ERP and Moodle addresses (http or https), read on the server. The links render outside <main>. */
   erpUrl?: string;
   lmsUrl?: string;
@@ -109,6 +112,7 @@ export function AppShell({
           erpUrl={erpUrl}
           lmsUrl={lmsUrl}
           connectionStatus={connectionStatus}
+          fetchedAt={fetchedAt}
         />
         <main
           id="main"

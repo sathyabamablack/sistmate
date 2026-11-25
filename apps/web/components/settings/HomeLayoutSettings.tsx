@@ -100,7 +100,7 @@ export function HomeLayoutSettings() {
               aria-labelledby={labelId}
               className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface"
             >
-              {order.map((section, i) => {
+              {order.filter((section) => section !== "courses").map((section, i) => {
                 const shown = !hidden.includes(section);
                 const name = SECTION_LABELS[section];
                 const checkId = `${uid}-show-${section}`;

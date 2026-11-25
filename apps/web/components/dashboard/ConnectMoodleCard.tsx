@@ -46,7 +46,7 @@ export function ConnectMoodleCard() {
         <div className="min-w-0 md:flex-1">
           <p className="font-display text-subheading font-semibold text-foreground">Connect LMS</p>
           <p className="text-body text-muted-foreground">
-            Adds your courses, assignments and deadlines. Used once, never stored.
+            Enter your LMS password to see your courses, assignments and deadlines. It is used once to connect and is not saved.
           </p>
         </div>
         <div className="flex gap-2">
