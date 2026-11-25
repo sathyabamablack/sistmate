@@ -87,9 +87,9 @@ export default function CgpaCalculatorPage() {
       </section>
 
       <section className="mt-16 flex flex-wrap items-center gap-3">
-        <Link href="/login" className={buttonClass("primary", "md")}>
+        <a href="/login" className={buttonClass("primary", "md")}>
           Use my real results
-        </Link>
+        </a>
         <Link href="/attendance-calculator" className={buttonClass("outline", "md")}>
           Attendance calculator
         </Link>

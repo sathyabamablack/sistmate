@@ -15,19 +15,23 @@ export const PUBLIC_TOOLS = [
 const linkClass =
   "rounded-sm font-medium text-foreground underline decoration-border decoration-2 underline-offset-4 hover:decoration-foreground focusable";
 
-/** Header and footer for the public, indexable pages. Every page links to its siblings. */
+/**
+ * Header and footer for the public, indexable pages. Every page links to its siblings.
+ * Links into the signed-in app (/login, /welcome) are plain <a>: a full page load lets proxy.ts show the
+ * maintenance page when it is on, which a client-side navigation would skip.
+ */
 export function PublicShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <header className="border-b border-border/70">
         <div className={cn(wrap, "flex h-14 items-center justify-between gap-4 sm:h-16")}>
-          <Link href="/welcome" className="flex shrink-0 items-center gap-2.5 rounded-lg focusable">
+          <a href="/welcome" className="flex shrink-0 items-center gap-2.5 rounded-lg focusable">
             <Logo className="h-8 w-8" />
             <span aria-hidden className="font-display text-subheading font-semibold">
               Student Portal
             </span>
             <span className="sr-only">Student Portal home</span>
-          </Link>
+          </a>
           <nav aria-label="Tools" className="hidden md:block">
             <ul className="flex items-center gap-1 text-small font-medium text-muted-foreground">
               {PUBLIC_TOOLS.map((t) => (
@@ -39,9 +43,9 @@ export function PublicShell({ children }: { children: ReactNode }) {
               ))}
             </ul>
           </nav>
-          <Link href="/login" className={buttonClass("primary", "sm")}>
+          <a href="/login" className={buttonClass("primary", "sm")}>
             Sign in
-          </Link>
+          </a>
         </div>
       </header>
 
@@ -62,9 +66,9 @@ export function PublicShell({ children }: { children: ReactNode }) {
               </li>
             ))}
             <li>
-              <Link href="/welcome" className={cn(linkClass, "inline-flex min-h-11 items-center lg:min-h-0")}>
+              <a href="/welcome" className={cn(linkClass, "inline-flex min-h-11 items-center lg:min-h-0")}>
                 About the portal
-              </Link>
+              </a>
             </li>
           </ul>
         </div>

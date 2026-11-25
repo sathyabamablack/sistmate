@@ -1,0 +1,19 @@
+{
+  // Anonymous chat on the sistmate break page: one Durable Object room, WebSockets with hibernation.
+  // Secret, set with `wrangler secret put ADMIN_KEY` (the /admin page asks for it).
+  "name": "sistmate-chat",
+  "account_id": "87dedc77eafe008c40567ce15e01e206",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  // Off on purpose: no request logs, so admin calls leave no IP trail.
+  "observability": { "enabled": false },
+  "vars": {
+    // Pages allowed to open the chat socket (comma-separated origins).
+    "ALLOWED_ORIGINS": "https://sistmate.vercel.app,https://sistmate-web.vercel.app"
+  },
+  "durable_objects": { "bindings": [{ "name": "ROOM", "class_name": "ChatRoom" }] },
+  // SQLite-backed, which the free plan supports.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChatRoom"] }]
+}

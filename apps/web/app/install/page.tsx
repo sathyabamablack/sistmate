@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "@/components/ui/IntentLink";
 import { statSync } from "node:fs";
 import path from "node:path";
 import { Download } from "lucide-react";
@@ -77,13 +76,13 @@ export default function InstallPage() {
     <div className="min-h-dvh bg-background text-foreground">
       <header className="bg-accent text-accent-foreground">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-8">
-          <Link href="/welcome" className="flex items-center gap-2.5 rounded-lg focusable">
+          <a href="/welcome" className="flex items-center gap-2.5 rounded-lg focusable">
             <Logo className="h-8 w-8" />
             <span className="font-display text-subheading font-semibold">Student Portal</span>
-          </Link>
-          <Link href="/welcome#install" className={buttonClass("outline", "sm")}>
+          </a>
+          <a href="/welcome#install" className={buttonClass("outline", "sm")}>
             Text steps
-          </Link>
+          </a>
         </div>
       </header>
 

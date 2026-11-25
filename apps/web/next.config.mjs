@@ -29,6 +29,10 @@ const PAPERS_ORIGIN = process.env.PAPERS_API_URL ? ` ${new URL(process.env.PAPER
 /** The push alerts Worker (lib/push.ts), which the browser calls directly to subscribe. */
 const PUSH_ORIGIN = process.env.PUSH_API_URL ? ` ${new URL(process.env.PUSH_API_URL.trim()).origin}` : "";
 
+/** The anonymous chat Worker, which the maintenance page (public/maintenance.html, shown by proxy.ts) connects to. */
+const CHAT_ORIGIN = (process.env.CHAT_API_URL || "https://sistmate-chat.sistmate-static.workers.dev").replace(/\/+$/, "");
+const CHAT_WS = ` wss://${new URL(CHAT_ORIGIN).host}`;
+
 const securityHeaders = [
   // Inline styles/scripts are needed for the theme boot script and Next's runtime.
   {
@@ -38,11 +42,11 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline'" +
         ASSET_ORIGIN +
         (process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""),
-      `style-src 'self' 'unsafe-inline'${ASSET_ORIGIN}`,
+      `style-src 'self' 'unsafe-inline'${ASSET_ORIGIN} https://fonts.googleapis.com`,
       "img-src 'self' data: blob: https:",
-      `font-src 'self' data:${ASSET_ORIGIN}`,
+      `font-src 'self' data:${ASSET_ORIGIN} https://fonts.gstatic.com`,
       // The service worker fetches (and caches) the static files from the asset host.
-      `connect-src 'self'${ASSET_ORIGIN}${PAPERS_ORIGIN}${PUSH_ORIGIN}`,
+      `connect-src 'self'${ASSET_ORIGIN}${PAPERS_ORIGIN}${PUSH_ORIGIN}${CHAT_WS}`,
       "worker-src 'self'",
       "manifest-src 'self'",
       "frame-ancestors 'none'",

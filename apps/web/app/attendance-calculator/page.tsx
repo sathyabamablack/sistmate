@@ -97,9 +97,9 @@ export default function AttendanceCalculatorPage() {
       </section>
 
       <section className="mt-16 flex flex-wrap items-center gap-3">
-        <Link href="/login" className={buttonClass("primary", "md")}>
+        <a href="/login" className={buttonClass("primary", "md")}>
           See every subject at once
-        </Link>
+        </a>
         <Link href="/cgpa-calculator" className={buttonClass("outline", "md")}>
           CGPA calculator
         </Link>

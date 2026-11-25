@@ -1,0 +1,14 @@
+{
+  "name": "mock-sathyabama-erp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local, zero-dependency mock of the Sathyabama ERP login service + data API. Development only — fake data, no real portal contact, no captcha.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "engines": {
+    "node": ">=20.9"
+  }
+}

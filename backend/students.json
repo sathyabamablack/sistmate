@@ -1,0 +1,50 @@
+{
+  "_comment": "Fake students for the local mock ERP. 'password' imitates the real ERP where the default password is the student's date of birth (DD-MM-YYYY). Add your own test register number here, or run with DEV_ALLOW_ANY=1 to accept any login.",
+  "students": [
+    {
+      "registerNumber": "41110234",
+      "password": "01-01-2004",
+      "studentId": "100234",
+      "name": "Arjun Ramkumar",
+      "program": "B.E. Computer Science and Engineering",
+      "department": "Computer Science and Engineering",
+      "semester": 5,
+      "yearOfStudy": 3,
+      "section": "B",
+      "batch": "2024-2028",
+      "email": "arjun.ramkumar2024@sathyabama.ac.in",
+      "phone": "+91 98840 11234",
+      "arrears": 0
+    },
+    {
+      "registerNumber": "41110999",
+      "password": "test123",
+      "studentId": "145530",
+      "name": "Your Test Account",
+      "program": "B.E. Computer Science and Engineering",
+      "department": "Computer Science and Engineering",
+      "semester": 5,
+      "yearOfStudy": 3,
+      "section": "A",
+      "batch": "2022-2026",
+      "email": "41110999@sathyabama.ac.in",
+      "phone": "",
+      "arrears": 0
+    },
+    {
+      "registerNumber": "41110567",
+      "password": "15-08-2005",
+      "studentId": "100567",
+      "name": "Priya Varsha",
+      "program": "B.E. Electronics and Communication Engineering",
+      "department": "Electronics and Communication Engineering",
+      "semester": 3,
+      "yearOfStudy": 2,
+      "section": "A",
+      "batch": "2024-2028",
+      "email": "priya.varsha2024@sathyabama.ac.in",
+      "phone": "+91 98410 05678",
+      "arrears": 1
+    }
+  ]
+}

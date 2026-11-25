@@ -1,0 +1,38 @@
+### Mock Sathyabama ERP — sample requests
+### Open in VS Code with the "REST Client" extension, or copy into curl/Postman.
+### Start the server first:  cd backend && npm start
+
+@base = http://localhost:8787
+
+### Health check
+GET {{base}}/health
+
+### Login — valid seeded student  (returns an access token)
+# @name login
+POST {{base}}/api/login
+Content-Type: application/json
+
+{
+  "RegisterNumber": "41110999",
+  "Password": "test123"
+}
+
+### Login — wrong password (should fail)
+POST {{base}}/api/login
+Content-Type: application/json
+
+{
+  "RegisterNumber": "41110999",
+  "Password": "nope"
+}
+
+### Decode the token from the login response above
+GET {{base}}/api/me
+Authorization: Bearer {{login.response.body.responseData.login.accessToken}}
+
+### Use the token against a data endpoint (the full login -> token -> data flow)
+POST {{base}}/erp/api/v1.0/MasterStudent/view
+Authorization: Bearer {{login.response.body.responseData.login.accessToken}}
+Content-Type: application/json
+
+{ "StudentId": "{{login.response.body.responseData.login.StudentId}}" }
